@@ -29,7 +29,7 @@ int KnxObjectSigned32::_knxDecode(const std::vector<unsigned char> &frame, KnxDa
 
 void KnxObjectSigned32::_knxEncode(const KnxData &data, std::vector<unsigned char> &frame)
 {
-    int val = data.value_signed;
+    int val = static_cast<signed int>(data.value_signed);
     frame.resize(6);
     frame[0] = 0x00;
     frame[1] = 0x00;

@@ -46,12 +46,12 @@ KnxScpiClient::KnxScpiClient(KnxScpiServer *server, int srvfd):
     _mode(TextMode)
 {
     int sockSize = sizeof(struct sockaddr_in);
-    _clientFd = accept(srvfd, (struct sockaddr *)&_client, (socklen_t*)&sockSize);
+    _clientFd = accept(srvfd, reinterpret_cast<struct sockaddr *>(&_client), reinterpret_cast<socklen_t*>(&sockSize));
     _listen.clear();
     _thread = thread([this]()
         {
             char client_message[2000];
-            int read_size;
+            long read_size;
             string last;
             last.clear();
 
@@ -75,7 +75,7 @@ KnxScpiClient::KnxScpiClient(KnxScpiServer *server, int srvfd):
                         else if (_mode == DateTextMode)
                         {
                             char tmp[28];
-                            time_t t = time(0);   // get time now
+                            time_t t = time(nullptr);   // get time now
                             struct tm * now = localtime( & t );
                             sprintf(tmp, "%i/%02i/%02i %02i:%02i:%02i: ",
                                    now->tm_year + 1900,
@@ -106,7 +106,7 @@ KnxScpiClient::KnxScpiClient(KnxScpiServer *server, int srvfd):
                 FD_SET(_clientFd, &readset);
                 tv.tv_sec = 0;
                 tv.tv_usec = 100000;
-                res = select(_clientFd+1, &readset, NULL, NULL, &tv);
+                res = select(_clientFd+1, &readset, nullptr, nullptr, &tv);
                 if(res == 0) // timeout
                     continue;
                 memset(client_message, 0, 2000);
@@ -227,7 +227,7 @@ KnxScpiClient::KnxScpiClient(KnxScpiServer *server, int srvfd):
                     }
                     else if(cmd[0] == "listen"  && cmd.size() >= 2)
                     {
-                        const KnxObject *obj = NULL;
+                        const KnxObject *obj = nullptr;
                         string msg;
                         msg.clear();
                         if(cmd[1] == "*")
@@ -257,7 +257,7 @@ KnxScpiClient::KnxScpiClient(KnxScpiServer *server, int srvfd):
                         else
                         {
                             unsigned short gad = 0;
-                            gad = stoi(cmd[1]);
+                            gad = static_cast<unsigned short>(stoi(cmd[1]));
                             obj = pool->getObjByGad(gad);
                         }
                         if(obj)

@@ -11,6 +11,7 @@
 #include "knxobjectpool.h"
 #include "knxscpiserver.h"
 #include "knxeventfifo.h"
+#include "knxdatachanged.h"
 
 using namespace std;
 
@@ -22,9 +23,9 @@ static char args_doc[] = "";
 
 /* The options we understand. */
 static struct argp_option options[] = {
-    {"verbose",  'v', 0,      0,  "Produce verbose output", 0 },
+    {"verbose",  'v', nullptr,      0,  "Produce verbose output", 0 },
     {"conf",     'c', "FILE", 0,  "Configuration file instead of /etc/knxcached.xml", 0},
-    { 0, 0, 0, 0, 0, 0 }
+    { nullptr, 0, nullptr, 0, nullptr, 0 }
 };
 
 /* Used by main to communicate with parse_opt. */
@@ -62,13 +63,14 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 }
 
 /* Our argp parser. */
-static struct argp argp = { options, parse_opt, args_doc, doc, 0, 0, 0 };
+static struct argp argp = { options, parse_opt, args_doc, doc, nullptr, nullptr, nullptr };
 
 struct application {
     KnxObjectPool *pool;
     KnxScpiServer *scpi;
 };
-struct application apps = {NULL, NULL};
+
+static struct application apps = {nullptr, nullptr};
 
 
 void sig_handler(int sig)
@@ -96,10 +98,10 @@ int main(int argc, char** argv)
 
     memset(&sa, 0, sizeof(sa));
     sa.sa_handler = &sig_handler;
-    sigaction(SIGTERM, &sa, NULL);
-    sigaction(SIGINT, &sa, NULL);
+    sigaction(SIGTERM, &sa, nullptr);
+    sigaction(SIGINT, &sa, nullptr);
 
-    argp_parse (&argp, argc, argv, 0, 0, &arguments);
+    argp_parse (&argp, argc, argv, 0, nullptr, &arguments);
 
     if(access(arguments.conf_file, R_OK) != 0)
     {

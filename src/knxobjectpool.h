@@ -3,6 +3,7 @@
 #include <string>
 #include <map>
 #include <thread>
+#include <memory>
 #include <eibclient.h>
 
 #include "knxobject.h"
@@ -26,7 +27,7 @@ public:
 
     unsigned char type(unsigned short addr) const;
     void addEventForAll(KnxEventFifo *ev) const;
-    void write(unsigned short src, unsigned short dest, const unsigned char *buf, unsigned short len);
+    void write(unsigned short src, unsigned short dest, const unsigned char *buf, int len);
     bool shutdown() const;
     void stop();
     void start();

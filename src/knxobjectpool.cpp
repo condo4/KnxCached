@@ -16,7 +16,7 @@
 
 using namespace std;
 
-KnxObjectPool* KnxObjectPool::_instance = NULL;
+KnxObjectPool* KnxObjectPool::_instance = nullptr;
 
 KnxObjectPool::KnxObjectPool(string conffile):
     _shutdown(false)
@@ -30,22 +30,22 @@ KnxObjectPool::KnxObjectPool(string conffile):
     xmlInitParser();
 
     doc = xmlParseFile(conffile.c_str());
-    if (doc == NULL)
+    if (doc == nullptr)
     {
         cerr << "Error: unable to parse file " << conffile << endl;
         exit(1);
     }
 
     xpathCtx = xmlXPathNewContext(doc);
-    if(xpathCtx == NULL)
+    if(xpathCtx == nullptr)
     {
         cerr << "Error: unable to create new XPath context" << endl;
         exit(1);
     }
 
     /* Connect to knxd */
-    xpathObj = xmlXPathEvalExpression((const xmlChar*)"//knxd", xpathCtx);
-    if(xpathObj == NULL) {
+    xpathObj = xmlXPathEvalExpression(reinterpret_cast<const xmlChar*>("//knxd"), xpathCtx);
+    if(xpathObj == nullptr) {
         cerr << "Error: unable to evaluate xpath expression" << endl;
         xmlXPathFreeContext(xpathCtx);
         exit(1);
@@ -56,7 +56,7 @@ KnxObjectPool::KnxObjectPool(string conffile):
         exit(1);
     }
     xmlNodePtr knxdnode = xpathObj->nodesetval->nodeTab[0];
-    xmlChar *url = xmlGetProp(knxdnode, (const xmlChar*)"url");
+    xmlChar *url = xmlGetProp(knxdnode, reinterpret_cast<const xmlChar*>("url"));
     _connection = EIBSocketURL (reinterpret_cast<char*>(url));
     if (EIBOpen_GroupSocket (_connection, 0) == -1){
         std::cout << "Error opening knxd socket (" << reinterpret_cast<char*>(url) << ")" << std::endl;
@@ -67,8 +67,8 @@ KnxObjectPool::KnxObjectPool(string conffile):
     xmlXPathFreeObject(xpathObj);
 
     /* Create all objects */
-    xpathObj = xmlXPathEvalExpression((const xmlChar*)"//object", xpathCtx);
-    if(xpathObj == NULL) {
+    xpathObj = xmlXPathEvalExpression(reinterpret_cast<const xmlChar*>("//object"), xpathCtx);
+    if(xpathObj == nullptr) {
         cerr << "Error: unable to evaluate xpath expression" << endl;
         xmlXPathFreeContext(xpathCtx);
         exit(1);
@@ -77,9 +77,9 @@ KnxObjectPool::KnxObjectPool(string conffile):
     for(int i = 0; i < xpathObj->nodesetval->nodeNr; i++)
     {
         xmlNodePtr node = xpathObj->nodesetval->nodeTab[i];
-        xmlChar *id = xmlGetProp(node, (const xmlChar*)"id");
-        xmlChar *type = xmlGetProp(node, (const xmlChar*)"type");
-        xmlChar *gad = xmlGetProp(node, (const xmlChar*)"gad");
+        xmlChar *id = xmlGetProp(node, reinterpret_cast<const xmlChar*>("id"));
+        xmlChar *type = xmlGetProp(node, reinterpret_cast<const xmlChar*>("type"));
+        xmlChar *gad = xmlGetProp(node, reinterpret_cast<const xmlChar*>("gad"));
         unsigned short rgad = StringToGroupAddress(reinterpret_cast<char*>(gad));
         if(_pool.find(rgad) != _pool.end())
         {
@@ -129,7 +129,7 @@ void KnxObjectPool::addEventForAll(KnxEventFifo *ev) const
     }
 }
 
-void KnxObjectPool::write(unsigned short src, unsigned short dest, const unsigned char *buf, unsigned short len)
+void KnxObjectPool::write(unsigned short src, unsigned short dest, const unsigned char *buf, int len)
 {
     UNUSED(src);
 
@@ -174,7 +174,7 @@ void KnxObjectPool::start()
                 FD_ZERO (&_read);
                 FD_SET (EIB_Poll_FD(_connection), &_read);
 
-                result = select (EIB_Poll_FD (_connection) + 1, &_read, 0, 0, &tv);
+                result = select (EIB_Poll_FD (_connection) + 1, &_read, nullptr, nullptr, &tv);
                 if(result == 0)
                 {
                     continue;
@@ -211,7 +211,7 @@ void KnxObjectPool::join()
 
 int KnxObjectPool::send(unsigned short dest, std::vector<unsigned char> data)
 {
-    return EIBSendGroup(_connection, dest, data.size(), data.data());
+    return EIBSendGroup(_connection, dest, static_cast<int>(data.size()), data.data());
 }
 
 int KnxObjectPool::getObjIds(std::vector<const char *> &param) const
@@ -221,7 +221,7 @@ int KnxObjectPool::getObjIds(std::vector<const char *> &param) const
         const KnxObject *kobj = obj.second;
         param.push_back(kobj->id().c_str());
     }
-    return _pool.size();
+    return static_cast<int>(_pool.size());
 }
 
 KnxObject *KnxObjectPool::getObjById(const char *id)
@@ -232,7 +232,7 @@ KnxObject *KnxObjectPool::getObjById(const char *id)
         if(kobj->id() == string(id))
             return kobj;
     }
-    return NULL;
+    return nullptr;
 }
 
 KnxObject *KnxObjectPool::getObjById(const string& id)
@@ -248,5 +248,5 @@ const KnxObject *KnxObjectPool::getObjByGad(unsigned short addr) const
         if(kobj->gad() == addr)
             return kobj;
     }
-    return NULL;
+    return nullptr;
 }

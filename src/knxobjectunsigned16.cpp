@@ -46,7 +46,7 @@ int KnxObjectUnsigned16::_knxDecode(const std::vector<unsigned char> &frame, Knx
 
 void KnxObjectUnsigned16::_knxEncode(const KnxData &data, std::vector<unsigned char> &frame)
 {
-    int id = _type.minor;
+    unsigned short id = _type.minor;
     if(_decode.find(id) == _decode.end())
     {
         id = 0;
@@ -54,7 +54,7 @@ void KnxObjectUnsigned16::_knxEncode(const KnxData &data, std::vector<unsigned c
     float fdata = data.value_unsigned;
     fdata += _decode[id].min_value;
     fdata *= (255.0 / _decode[id].max_value);
-    unsigned short raw = (int)fdata;
+    unsigned short raw = static_cast<unsigned short>(fdata);
     frame.resize(3);
     frame[0] = 0x00;
     frame[1] = 0x00;

@@ -3,6 +3,16 @@
 #include <string>
 #include <list>
 #include <queue>
+#include <memory>
+
+#include "knxdata.h"
+
+#define EPSILON 0.000001
+inline bool CompareDoubles (double A, double B)
+{
+   double diff = A - B;
+   return (diff < EPSILON) && (-diff < EPSILON);
+}
 
 // #define DEBUG_KNXOBJECT
 
@@ -21,62 +31,6 @@ unsigned short StringToGroupAddress(std::string addr);
 
 class KnxEventFifo;
 
-
-class KnxData
-{
-public:
-    enum Type {
-        Unknow,
-        Signed,
-        Unsigned,
-        Real
-    };
-    Type type;
-    union {
-        double value_real;
-        signed long long value_signed;
-        unsigned long long value_unsigned;
-    };
-
-    KnxData(Type t):
-        type(t),
-        value_unsigned(0)
-    {}
-};
-
-
-struct knx_type
-{
-    unsigned char major;
-    unsigned char minor;
-};
-
-
-
-class KnxDataChanged
-{
-public:
-    KnxData data;
-    struct knx_type knxtype;
-    std::string id;
-    std::string unity;
-    std::string text;
-
-
-    KnxDataChanged():
-        data(KnxData::Unknow) {}
-
-    KnxDataChanged(const KnxData &ndata):
-        data(ndata) {}
-
-    KnxDataChanged(const KnxDataChanged &src):
-        data(src.data),
-        knxtype(src.knxtype),
-        id(src.id),
-        unity(src.unity),
-        text(src.text)
-    {}
-};
 
 
 class KnxObject
@@ -101,7 +55,7 @@ protected:
 
 public:
     KnxObject(unsigned short gad, std::string id, unsigned short type_major, unsigned short type_minor, KnxData::Type type = KnxData::Unknow, unsigned char flag = FLAG_DEF);
-    virtual ~KnxObject() {}
+    virtual ~KnxObject();
 
     void knxCmdWrite(const std::vector<unsigned char> &frame);
     void knxCmdReponse(const std::vector<unsigned char> &frame);
@@ -119,5 +73,8 @@ public:
     virtual void setValue(const std::string val);
     bool initialized() const;
 };
+
+
+typedef std::shared_ptr<KnxObject> KnxObjectPtr;
 
 KnxObject *factoryKnxObject(unsigned short gad, std::string id, const char *type);

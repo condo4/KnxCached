@@ -28,7 +28,7 @@ static map<unsigned short, struct Param> _decode = {
 KnxObjectUnsigned8::KnxObjectUnsigned8(unsigned short gad, std::string id, unsigned short type_major, unsigned short type_minor):
     KnxObject(gad, id, type_major, type_minor, KnxData::Real)
 {
-    int idx = _type.minor;
+    unsigned short idx = _type.minor;
     if(_decode.find(idx) == _decode.end())
     {
         idx = 0;
@@ -44,11 +44,11 @@ int KnxObjectUnsigned8::_knxDecode(const std::vector<unsigned char> &frame, KnxD
         return -1;
     }
 
-    float fdata = frame[2];
+    double fdata = frame[2];
     fdata /= (255.0 / _param->max_value);
     fdata -= _param->min_value;
 
-    if(result.value_real != fdata)
+    if(CompareDoubles(result.value_real, fdata))
     {
         result.value_real = fdata;
         return 1;
@@ -61,7 +61,7 @@ void KnxObjectUnsigned8::_knxEncode(const KnxData &data, std::vector<unsigned ch
     frame.resize(3);
     frame[0] = 0x00;
     frame[1] = 0x00;
-    float fdata = data.value_real;
+    double fdata = data.value_real;
     fdata += _param->min_value;
     fdata *= (255.0 / _param->max_value);
 

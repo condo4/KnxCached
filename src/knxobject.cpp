@@ -6,6 +6,7 @@
 #include <cassert>
 
 #include "common.h"
+#include "knxdata.h"
 #include "knxobjectpool.h"
 #include "knxeventfifo.h"
 
@@ -54,6 +55,10 @@ KnxObject::KnxObject(unsigned short gad, string id, unsigned short type_major, u
 {
     _type.major = type_major;
     _type.minor = type_minor;
+}
+
+KnxObject::~KnxObject() {
+
 }
 
 
@@ -301,7 +306,7 @@ KnxObject *factoryKnxObject(unsigned short gad, string id, const char *type)
                 break;
             default:
                 cerr << "ERROR TYPE PARSING" << endl;
-                return NULL;
+                return nullptr;
             }
         }
     }

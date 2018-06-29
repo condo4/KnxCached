@@ -68,7 +68,7 @@ void KnxScpiServer::start()
             server.sin_port = htons( 6721 );
 
             /* Bind socket */
-            if( bind(serverFd, (struct sockaddr *)&server , sizeof(server)) < 0)
+            if( bind(serverFd, reinterpret_cast<struct sockaddr *>(&server) , sizeof(server)) < 0)
             {
                 perror("Could not bind socket. Error");
                 return;
@@ -88,7 +88,7 @@ void KnxScpiServer::start()
                 FD_SET(serverFd, &readset);
                 tv.tv_sec = 1;
                 tv.tv_usec = 0;
-                res = select(serverFd+1, &readset, NULL, NULL, &tv);
+                res = select(serverFd+1, &readset, nullptr, nullptr, &tv);
                 if(res == 0) // timeout
                 {
                     checkClients();
@@ -133,13 +133,13 @@ void KnxScpiServer::join()
 void KnxScpiServer::checkClients()
 {
     bool loop = true;
-    int i = 0;
+    unsigned int i = 0;
 
     while(loop)
     {
         bool findone = false;
         loop = false;
-        int todel = 0;
+        unsigned int todel = 0;
         for(auto client = _clients.begin(); client != _clients.end(); ++client)
         {
             if((*client)->closed())

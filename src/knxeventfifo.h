@@ -6,6 +6,7 @@
 #include <condition_variable>
 
 #include "knxobject.h"
+#include "knxdatachanged.h"
 
 class KnxEventFifo
 {
