@@ -26,7 +26,7 @@ if len(projects) != 1:
 
 f = archive.open(projects[0].filename)
 xml = etree.fromstring(f.read())
-namespaces = {"knx":"http://knx.org/xml/project/13" ,"xsd":"http://www.w3.org/2001/XMLSchema" ,"xsi":"http://www.w3.org/2001/XMLSchema-instance"}
+namespaces = {"knx":"http://knx.org/xml/project/14" ,"xsd":"http://www.w3.org/2001/XMLSchema" ,"xsi":"http://www.w3.org/2001/XMLSchema-instance"}
 
 GAs = xml.xpath("//knx:GroupAddresses/knx:GroupRanges", namespaces=namespaces)[0]
 address_mask = [[0xFFFF], [0xF800, 0x07FF], [0xF800, 0x0700, 0x00FF]]
