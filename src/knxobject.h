@@ -37,10 +37,10 @@ class KnxObject
 {
 private:
     unsigned short _gad;
-    std::string _id;
-    mutable std::list<KnxEventFifo*> _events;
     unsigned char _flag;
     bool _initialized;
+    std::string _id;
+    mutable std::list<KnxEventFifo*> _events;
 
     void _valueChanged() const;
 
@@ -54,7 +54,7 @@ protected:
 
 
 public:
-    KnxObject(unsigned short gad, std::string id, unsigned short type_major, unsigned short type_minor, KnxData::Type type = KnxData::Unknow, unsigned char flag = FLAG_DEF);
+    KnxObject(unsigned short gad, std::string id, unsigned char type_major, unsigned char type_minor, KnxData::Type type = KnxData::Unknow, unsigned char flag = FLAG_DEF);
     virtual ~KnxObject();
 
     void knxCmdWrite(const std::vector<unsigned char> &frame);

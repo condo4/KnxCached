@@ -22,8 +22,13 @@ static map<unsigned short, struct Param> _decode = {
 };
 
 
-KnxObjectUnsigned16::KnxObjectUnsigned16(unsigned short gad, std::string id, unsigned short type_major, unsigned short type_minor):
+KnxObjectUnsigned16::KnxObjectUnsigned16(unsigned short gad, std::string id, unsigned char type_major, unsigned char type_minor):
     KnxObject(gad, id, type_major, type_minor, KnxData::Unsigned)
+{
+
+}
+
+KnxObjectUnsigned16::~KnxObjectUnsigned16()
 {
 
 }
@@ -35,7 +40,7 @@ int KnxObjectUnsigned16::_knxDecode(const std::vector<unsigned char> &frame, Knx
         cerr << "KnxObjectUnsigned16::_knxDecode size " << frame.size() << " " << id() << endl;
         return -1;
     }
-    unsigned short val = (((frame[2]<< 8) | (frame[3])));
+    unsigned short val = static_cast<unsigned short>(((frame[2]<< 8) | (frame[3])));
     if(val != result.value_unsigned)
     {
         result.value_unsigned = val;

@@ -6,9 +6,14 @@
 
 using namespace std;
 
-KnxObject3Bits::KnxObject3Bits(unsigned short gad, std::string id, unsigned short type_major, unsigned short type_minor):
+KnxObject3Bits::KnxObject3Bits(unsigned short gad, std::string id, unsigned char type_major, unsigned char type_minor):
     KnxObject(gad, id, type_major, type_minor, KnxData::Signed)
 {
+}
+
+KnxObject3Bits::~KnxObject3Bits()
+{
+
 }
 
 int KnxObject3Bits::_knxDecode(const std::vector<unsigned char> &frame, KnxData &result)
@@ -30,7 +35,7 @@ int KnxObject3Bits::_knxDecode(const std::vector<unsigned char> &frame, KnxData 
 
 void KnxObject3Bits::_knxEncode(const KnxData &data, std::vector<unsigned char> &frame)
 {
-    int raw = data.value_signed;
+    int raw = static_cast<int>(data.value_signed);
     frame.resize(2);
     frame[0] = 0x00;
     frame[1] = 0x00;

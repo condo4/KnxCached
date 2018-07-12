@@ -6,7 +6,8 @@ class KnxObjectFloat : public KnxObject
 {
 
 public:
-    KnxObjectFloat(unsigned short gad, std::string id, unsigned short type_major, unsigned short type_minor);
+    KnxObjectFloat(unsigned short gad, std::string id, unsigned char type_major, unsigned char type_minor);
+    ~KnxObjectFloat();
     virtual int _knxDecode(const std::vector<unsigned char> &frame, KnxData &result);
     virtual void _knxEncode(const KnxData &data, std::vector<unsigned char> &frame);
 

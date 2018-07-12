@@ -12,9 +12,14 @@ using namespace std;
 
 
 
-KnxObjectFloat16::KnxObjectFloat16(unsigned short gad, string id, unsigned short type_major, unsigned short type_minor):
+KnxObjectFloat16::KnxObjectFloat16(unsigned short gad, string id, unsigned char type_major, unsigned char type_minor):
     KnxObject(gad, id, type_major, type_minor, KnxData::Real)
 {
+}
+
+KnxObjectFloat16::~KnxObjectFloat16()
+{
+
 }
 
 int KnxObjectFloat16::_knxDecode(const std::vector<unsigned char> &frame, KnxData &result)
@@ -25,14 +30,14 @@ int KnxObjectFloat16::_knxDecode(const std::vector<unsigned char> &frame, KnxDat
         return -1;
     }
     double res;
-    unsigned short data = (frame[2] << 8) | frame[3];
+    unsigned short data = static_cast<unsigned short>((frame[2] << 8) | frame[3]);
     unsigned short sign = (data & 0x8000) >> 15;
     unsigned short exp = (data & 0x7800) >> 11;
     int mant = data & 0x07ff;
     if(sign != 0)
         mant = -(~(mant - 1) & 0x07ff);
     res = (1 << exp) * 0.01 * mant;
-    if(res != result.value_real)
+    if(!CompareDoubles(res, result.value_real))
     {
         result.value_real = res;
         return 1;
@@ -42,7 +47,7 @@ int KnxObjectFloat16::_knxDecode(const std::vector<unsigned char> &frame, KnxDat
 
 void KnxObjectFloat16::_knxEncode(const KnxData &data, std::vector<unsigned char> &frame)
 {
-    float fdata = data.value_real;
+    float fdata = static_cast<float>(data.value_real);
     unsigned int sign;
     unsigned int exp;
     unsigned short raw;
@@ -51,13 +56,13 @@ void KnxObjectFloat16::_knxEncode(const KnxData &data, std::vector<unsigned char
     exp = 0;
     if (fdata < 0)
         sign = 1;
-    mant = (fdata * 100);
+    mant = static_cast<int>(fdata * 100);
     while(mant > 2047 || mant < -2048)
     {
         mant = mant >> 1;
         ++exp;
     }
-    raw = (sign << 15) | (exp << 11) | (mant & 0x07ff);
+    raw = static_cast<unsigned short>((sign << 15) | (exp << 11) | (mant & 0x07ff));
     frame.resize(4);
     frame[0] = 0x00;
     frame[1] = 0x00;

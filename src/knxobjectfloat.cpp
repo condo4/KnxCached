@@ -10,9 +10,14 @@
 
 using namespace std;
 
-KnxObjectFloat::KnxObjectFloat(unsigned short gad, string id, unsigned short type_major, unsigned short type_minor):
+KnxObjectFloat::KnxObjectFloat(unsigned short gad, string id, unsigned char type_major, unsigned char type_minor):
     KnxObject(gad, id, type_major, type_minor, KnxData::Real)
 {
+}
+
+KnxObjectFloat::~KnxObjectFloat()
+{
+
 }
 
 int KnxObjectFloat::_knxDecode(const std::vector<unsigned char> &frame, KnxData &result)
@@ -22,12 +27,12 @@ int KnxObjectFloat::_knxDecode(const std::vector<unsigned char> &frame, KnxData 
         cerr << "KnxObjectFloat::_knxDecode size " << frame.size() << " " << id() << endl;
         return -1;
     }
-    unsigned int data = ((frame[2]<< 24) | (frame[3]<< 16) | (frame[4]<< 8) | frame[5]);
+    int data = ((frame[2]<< 24) | (frame[3]<< 16) | (frame[4]<< 8) | frame[5]);
     float fdata;
     assert(sizeof data == sizeof fdata);
     memcpy(&fdata, &data, sizeof data);
-    double newval = fdata;
-    if(newval != result.value_real)
+    double newval = static_cast<double>(fdata);
+    if(!CompareDoubles(newval, result.value_real))
     {
         result.value_real = newval;
         return 1;
@@ -37,7 +42,7 @@ int KnxObjectFloat::_knxDecode(const std::vector<unsigned char> &frame, KnxData 
 
 void KnxObjectFloat::_knxEncode(const KnxData &data, std::vector<unsigned char> &frame)
 {
-    float fdata = data.value_real;
+    float fdata = static_cast<float>(data.value_real);
     unsigned int raw;
     assert(sizeof raw == sizeof fdata);
     memcpy(&raw, &fdata, sizeof fdata);

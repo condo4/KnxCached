@@ -34,9 +34,14 @@ static map<unsigned short, vector<string>> _decode = {
     {23, {"Only move Up/Down", "Move Up/Down + StepStop",   "Shutter/Blinds mode"}}
 };
 
-KnxObjectBool::KnxObjectBool(unsigned short gad, string id, unsigned short type_major, unsigned short type_minor):
+KnxObjectBool::KnxObjectBool(unsigned short gad, string id, unsigned char type_major, unsigned char type_minor):
     KnxObject(gad, id, type_major, type_minor, KnxData::Unsigned)
 {
+}
+
+KnxObjectBool::~KnxObjectBool()
+{
+
 }
 
 int KnxObjectBool::_knxDecode(const std::vector<unsigned char> &frame, KnxData &result)

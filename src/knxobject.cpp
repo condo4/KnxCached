@@ -46,12 +46,12 @@ unsigned short StringToGroupAddress(std::string addr)
 
 
 
-KnxObject::KnxObject(unsigned short gad, string id, unsigned short type_major, unsigned short type_minor, KnxData::Type type, unsigned char flag):
-    _gad(gad),
-    _id(id),
-    _flag(flag),
-    _initialized(false),
-    _value(type)
+KnxObject::KnxObject(unsigned short gad, string id, unsigned char type_major, unsigned char type_minor, KnxData::Type type, unsigned char flag)
+    : _gad(gad)
+    , _flag(flag)
+    , _initialized(false)
+    , _id(id)
+    , _value(type)
 {
     _type.major = type_major;
     _type.minor = type_minor;
@@ -281,8 +281,8 @@ bool KnxObject::initialized() const
 KnxObject *factoryKnxObject(unsigned short gad, string id, const char *type)
 {
     unsigned short i = 0;
-    unsigned short type_major = 0;
-    unsigned short type_minor = 0;
+    unsigned char type_major = 0;
+    unsigned char type_minor = 0;
 
     if(type)
     {
@@ -292,7 +292,7 @@ KnxObject *factoryKnxObject(unsigned short gad, string id, const char *type)
             switch(i++)
             {
             case 0:
-                type_major = stoi(s);
+                type_major = static_cast<unsigned char>(stoi(s));
                 break;
             case 1:
                 if(s[0] == 'x')
@@ -301,7 +301,7 @@ KnxObject *factoryKnxObject(unsigned short gad, string id, const char *type)
                 }
                 else
                 {
-                    type_minor = stoi(s);
+                    type_minor = static_cast<unsigned char>(stoi(s));
                 }
                 break;
             default:
