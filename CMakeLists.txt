@@ -10,8 +10,10 @@ include_directories(${LIBXML2_INCLUDE_DIR})
 
 find_package (Threads)
 
+if(${USE_INTERNAL_LIBEIB})
 include_directories("lib/include")
 link_directories("lib")
+endif (${USE_INTERNAL_LIBEIB})
 
 file(GLOB LIB_SOURCES_FILES
     src/*.cpp
