@@ -20,7 +20,7 @@ private:
     fd_set _read;
 
 public:
-    KnxObjectPool(std::string conffile);
+    explicit KnxObjectPool(std::string conffile);
     virtual ~KnxObjectPool();
 
     static KnxObjectPool *instance();

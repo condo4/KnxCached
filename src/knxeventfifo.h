@@ -24,5 +24,5 @@ public:
 
     void push(const KnxDataChanged& item);
     void push(KnxDataChanged&& item);
-    bool dataAvailable();
+    bool dataAvailable() const;
 };

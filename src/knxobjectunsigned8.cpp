@@ -25,7 +25,7 @@ static map<unsigned short, struct Param> _decode = {
     {5,  {"DecimalFactor", "ratio", 0, 1}}
 };
 
-KnxObjectUnsigned8::KnxObjectUnsigned8(unsigned short gad, std::string id, unsigned char type_major, unsigned char type_minor):
+KnxObjectUnsigned8::KnxObjectUnsigned8(unsigned short gad, const string &id, unsigned char type_major, unsigned char type_minor):
     KnxObject(gad, id, type_major, type_minor, KnxData::Real)
 {
     unsigned short idx = _type.minor;

@@ -10,7 +10,7 @@
 
 using namespace std;
 
-KnxObjectFloat::KnxObjectFloat(unsigned short gad, string id, unsigned char type_major, unsigned char type_minor):
+KnxObjectFloat::KnxObjectFloat(unsigned short gad, const string &id, unsigned char type_major, unsigned char type_minor):
     KnxObject(gad, id, type_major, type_minor, KnxData::Real)
 {
 }

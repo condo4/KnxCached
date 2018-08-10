@@ -24,8 +24,6 @@ KnxObjectPool::KnxObjectPool(string conffile):
     xmlXPathContextPtr xpathCtx;
     xmlXPathObjectPtr xpathObj;
     xmlDocPtr doc;
-    string res;
-    string query;
 
     xmlInitParser();
 

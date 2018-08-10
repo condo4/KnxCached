@@ -14,7 +14,7 @@ class KnxScpiServer
     std::thread _threadServer;
 
 public:
-    KnxScpiServer(KnxObjectPool *pool);
+    explicit KnxScpiServer(KnxObjectPool *pool);
     virtual ~KnxScpiServer();
 
     bool shutdown() const;

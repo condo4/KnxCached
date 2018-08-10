@@ -14,6 +14,6 @@ public:
 
 
     KnxDataChanged();
-    KnxDataChanged(const KnxData &ndata);
+    explicit KnxDataChanged(const KnxData &ndata);
     KnxDataChanged(const KnxDataChanged &src);
 };

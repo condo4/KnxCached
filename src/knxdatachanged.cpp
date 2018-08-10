@@ -2,12 +2,15 @@
 
 KnxDataChanged::KnxDataChanged()
     : data(KnxData::Unknow)
+    , knxtype({0,0})
+
 {
 
 }
 
 KnxDataChanged::KnxDataChanged(const KnxData &ndata)
     : data(ndata)
+    , knxtype({0,0})
 {
 
 }

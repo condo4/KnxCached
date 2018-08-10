@@ -46,7 +46,7 @@ unsigned short StringToGroupAddress(std::string addr)
 
 
 
-KnxObject::KnxObject(unsigned short gad, string id, unsigned char type_major, unsigned char type_minor, KnxData::Type type, unsigned char flag)
+KnxObject::KnxObject(unsigned short gad, const string &id, unsigned char type_major, unsigned char type_minor, KnxData::Type type, unsigned char flag)
     : _gad(gad)
     , _flag(flag)
     , _initialized(false)
@@ -82,7 +82,7 @@ string KnxObject::value() const
     return wss.str();
 }
 
-void KnxObject::setValue(const string val)
+void KnxObject::setValue(const string &val)
 {
     switch(_value.type )
     {
@@ -280,12 +280,12 @@ bool KnxObject::initialized() const
 
 KnxObject *factoryKnxObject(unsigned short gad, string id, const char *type)
 {
-    unsigned short i = 0;
     unsigned char type_major = 0;
     unsigned char type_minor = 0;
 
     if(type)
     {
+        unsigned short i = 0;
         istringstream f(type);
         string s;
         while (getline(f, s, '.')) {

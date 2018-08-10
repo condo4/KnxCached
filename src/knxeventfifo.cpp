@@ -53,7 +53,7 @@ void KnxEventFifo::push(KnxDataChanged&& item)
     _cond.notify_one();
 }
 
-bool KnxEventFifo::dataAvailable()
+bool KnxEventFifo::dataAvailable() const
 {
     return !_queue.empty();
 }

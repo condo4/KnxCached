@@ -24,7 +24,7 @@ public:
         unsigned long long value_unsigned;
     };
 
-    KnxData(Type t);
+    explicit KnxData(Type t);
 
     virtual ~KnxData();
 };

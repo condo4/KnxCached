@@ -54,7 +54,7 @@ protected:
 
 
 public:
-    KnxObject(unsigned short gad, std::string id, unsigned char type_major, unsigned char type_minor, KnxData::Type type = KnxData::Unknow, unsigned char flag = FLAG_DEF);
+    KnxObject(unsigned short gad, const std::string &id, unsigned char type_major, unsigned char type_minor, KnxData::Type type = KnxData::Unknow, unsigned char flag = FLAG_DEF);
     virtual ~KnxObject();
 
     void knxCmdWrite(const std::vector<unsigned char> &frame);
@@ -70,7 +70,7 @@ public:
     const std::string &id() const;
     virtual std::string unity() const;
     virtual std::string value() const;
-    virtual void setValue(const std::string val);
+    virtual void setValue(const std::string &val);
     bool initialized() const;
 };
 
