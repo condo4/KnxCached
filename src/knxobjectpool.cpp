@@ -16,8 +16,10 @@
 
 using namespace std;
 
-KnxObjectPool::KnxObjectPool(string conffile):
-    _shutdown(false)
+KnxObjectPool::KnxObjectPool(string conffile)
+    : _connection(nullptr)
+    , _shutdown(false)
+    , _read({0,})
 {
     xmlXPathContextPtr xpathCtx;
     xmlXPathObjectPtr xpathObj;

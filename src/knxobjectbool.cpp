@@ -63,7 +63,6 @@ void KnxObjectBool::_knxEncode(const KnxData &data, std::vector<unsigned char> &
 {
     frame.resize(2);
     frame[0] = 0x00;
-    frame[1] = 0x00;
     unsigned char cmd = 0;
     cmd = cmd & 0xFE;
     cmd |= (data.value_unsigned)?(0x1):(0x0);
