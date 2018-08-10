@@ -66,8 +66,8 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 static struct argp argp = { options, parse_opt, args_doc, doc, nullptr, nullptr, nullptr };
 
 struct application {
-    KnxObjectPool *pool;
-    KnxScpiServer *scpi;
+    std::unique_ptr<KnxObjectPool> pool;
+    KnxScpiServerPtr scpi;
 };
 
 static struct application apps = {nullptr, nullptr};
@@ -110,7 +110,7 @@ int main(int argc, char** argv)
     }
 
     cout << "Using configuration file " << arguments.conf_file << endl;
-    apps.pool = new KnxObjectPool(arguments.conf_file);
+    apps.pool = std::unique_ptr<KnxObjectPool>(new KnxObjectPool(arguments.conf_file));
 
     KnxEventFifo catchallFifo;
     thread catchallProcess(
@@ -133,7 +133,7 @@ int main(int argc, char** argv)
 
     apps.pool->start();
 
-    apps.scpi = new KnxScpiServer(apps.pool);
+    apps.scpi = KnxScpiServerPtr(new KnxScpiServer(*(apps.pool)));
     apps.scpi->start();
 
     /* Wait application end */
@@ -145,9 +145,6 @@ int main(int argc, char** argv)
     catchallProcess.join();
     log_time();
     cout << "All thread halted" << endl;
-
-    delete apps.pool;
-    delete apps.scpi;
 
     return 0;
 }

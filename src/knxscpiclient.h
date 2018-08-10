@@ -20,23 +20,25 @@ private:
         DateTextMode,
         B64Mode
     };
-    KnxScpiServer *_server;
+    KnxScpiServer &_server;
     bool _shutdown;
     int _clientFd;
     struct sockaddr_in _client;
     std::thread _thread;
     bool _closed;
-    std::list<const KnxObject *> _listen;
+    std::list<KnxObjectPtr> _listen;
     KnxEventFifo _events;
     int _mode;
 
 public:
-    KnxScpiClient(KnxScpiServer* server, int srvfd);
+    KnxScpiClient(KnxScpiServer &server, int srvfd);
     bool shutdown() const;
 
     void stop();
     void join();
     void closeFd();
     bool closed() const;
-    KnxScpiServer *server() const;
+    KnxScpiServer &server() const;
 };
+
+typedef std::shared_ptr<KnxScpiClient> KnxScpiClientPtr;

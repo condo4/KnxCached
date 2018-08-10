@@ -34,12 +34,12 @@ static inline void trim(string &s) {
 }
 
 
-KnxScpiServer *KnxScpiClient::server() const
+KnxScpiServer &KnxScpiClient::server() const
 {
     return _server;
 }
 
-KnxScpiClient::KnxScpiClient(KnxScpiServer *server, int srvfd):
+KnxScpiClient::KnxScpiClient(KnxScpiServer &server, int srvfd):
     _server(server),
     _shutdown(false),
     _closed(false),
@@ -119,7 +119,7 @@ KnxScpiClient::KnxScpiClient(KnxScpiServer *server, int srvfd):
                 data.clear();
                 data = client_message;
 
-                KnxObjectPool *pool = _server->pool();
+                KnxObjectPool &pool = _server.pool();
 
                 if(data[data.size() - 1] != '\n')
                 {
@@ -175,25 +175,25 @@ KnxScpiClient::KnxScpiClient(KnxScpiServer *server, int srvfd):
                     }
                     else if(cmd[0] == "list?")
                     {
-                        vector<const char *> ids;
-                        pool->getObjIds(ids);
-                        for(const char* id: ids)
+                        vector<std::string> ids;
+                        pool.getObjIds(ids);
+                        for(const std::string &id: ids)
                         {
-                            const KnxObject *obj = pool->getObjById(id);
+                            const KnxObjectPtr obj = pool.getObjById(id);
                             string gad = GroupAddressToString(obj->gad());
                             write(_clientFd, gad.c_str(), gad.size());
                             write(_clientFd, " " , 1);
-                            write(_clientFd, id , strlen(id));
+                            write(_clientFd, id.c_str(), id.size());
                             write(_clientFd, "\n" , 1);
                         }
                     }
                     else if(cmd[0] == "values?")
                     {
-                        vector<const char *> ids;
-                        pool->getObjIds(ids);
-                        for(const char* id: ids)
+                        vector<std::string> ids;
+                        pool.getObjIds(ids);
+                        for(const std::string &id: ids)
                         {
-                            const KnxObject *obj = pool->getObjById(id);
+                            const KnxObjectPtr obj = pool.getObjById(id);
                             if(obj && obj->initialized())
                             {
                                 string res = obj->id() + ": " + obj->value() + " " + obj->unity();
@@ -227,16 +227,16 @@ KnxScpiClient::KnxScpiClient(KnxScpiServer *server, int srvfd):
                     }
                     else if(cmd[0] == "listen"  && cmd.size() >= 2)
                     {
-                        const KnxObject *obj = nullptr;
+                        KnxObjectPtr obj;
                         string msg;
                         msg.clear();
                         if(cmd[1] == "*")
                         {
-                            vector<const char *> ids;
-                            pool->getObjIds(ids);
-                            for(const char* id: ids)
+                            vector<std::string> ids;
+                            pool.getObjIds(ids);
+                            for(const std::string &id: ids)
                             {
-                                const KnxObject *obj = pool->getObjById(id);
+                                const KnxObjectPtr obj = pool.getObjById(id);
                                 if(obj)
                                 {
                                     obj->connect(&_events);
@@ -246,19 +246,19 @@ KnxScpiClient::KnxScpiClient(KnxScpiServer *server, int srvfd):
                         }
                         else if(!isdigit(cmd[1].c_str()[0]))
                         {
-                            obj = pool->getObjById(cmd[1]);
+                            obj = pool.getObjById(cmd[1]);
                         }
                         else if(cmd[1].find("/") != string::npos)
                         {
                             unsigned short gad = 0;
                             gad = StringToGroupAddress(cmd[1]);
-                            obj = pool->getObjByGad(gad);
+                            obj = pool.getObjByGad(gad);
                         }
                         else
                         {
                             unsigned short gad = 0;
                             gad = static_cast<unsigned short>(stoi(cmd[1]));
-                            obj = pool->getObjByGad(gad);
+                            obj = pool.getObjByGad(gad);
                         }
                         if(obj)
                         {
@@ -278,7 +278,7 @@ KnxScpiClient::KnxScpiClient(KnxScpiServer *server, int srvfd):
                     }
                     else if(cmd[0] == "set" && cmd.size() >= 3)
                     {
-                        KnxObject *obj = pool->getObjById(cmd[1]);
+                        KnxObjectPtr obj = pool.getObjById(cmd[1]);
                         if(obj)
                         {
                             obj->setValue(cmd[2]);

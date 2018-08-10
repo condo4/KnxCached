@@ -6,8 +6,8 @@
 
 using namespace std;
 
-KnxObject3Bits::KnxObject3Bits(unsigned short gad, const std::string &id, unsigned char type_major, unsigned char type_minor):
-    KnxObject(gad, id, type_major, type_minor, KnxData::Signed)
+KnxObject3Bits::KnxObject3Bits(KnxObjectPool &pool, unsigned short gad, const std::string &id, unsigned char type_major, unsigned char type_minor):
+    KnxObject(pool, gad, id, type_major, type_minor, KnxData::Signed)
 {
 }
 

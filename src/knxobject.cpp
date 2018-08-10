@@ -46,8 +46,9 @@ unsigned short StringToGroupAddress(std::string addr)
 
 
 
-KnxObject::KnxObject(unsigned short gad, const string &id, unsigned char type_major, unsigned char type_minor, KnxData::Type type, unsigned char flag)
-    : _gad(gad)
+KnxObject::KnxObject(KnxObjectPool &pool, unsigned short gad, const string &id, unsigned char type_major, unsigned char type_minor, KnxData::Type type, unsigned char flag)
+    : _pool(pool)
+    , _gad(gad)
     , _flag(flag)
     , _initialized(false)
     , _id(id)
@@ -115,7 +116,7 @@ void KnxObject::setValue(const string &val)
         }
         cout << endl;
 #endif
-        KnxObjectPool::instance()->send(gad(), data);
+        _pool.send(gad(), data);
     }
     _initialized = true;
     _valueChanged();
@@ -203,7 +204,7 @@ void KnxObject::knxCmdRead(const std::vector<unsigned char> &frame)
         vector<unsigned char> data;
         _knxEncode(_value, data);
         data[1] |= 0x40;
-        KnxObjectPool::instance()->send(gad(), data);
+        _pool.send(gad(), data);
     }
 }
 
@@ -215,7 +216,7 @@ void KnxObject::knxSendRead() const
     vector<unsigned char> data;
     data.resize(2);
     data[0] = 0x00;
-    KnxObjectPool::instance()->send(gad(), data);
+    _pool.send(gad(), data);
 }
 
 
@@ -278,7 +279,7 @@ bool KnxObject::initialized() const
 #include "knxobjectfloat.h"      /* 14 Float    32bit */
 
 
-KnxObject *factoryKnxObject(unsigned short gad, string id, const char *type)
+KnxObjectPtr factoryKnxObject(KnxObjectPool &pool, unsigned short gad, string id, const char *type)
 {
     unsigned char type_major = 0;
     unsigned char type_minor = 0;
@@ -313,20 +314,20 @@ KnxObject *factoryKnxObject(unsigned short gad, string id, const char *type)
     switch(type_major)
     {
     case 1:
-        return new KnxObjectBool(gad, id, type_major, type_minor);
+        return KnxObjectPtr(new KnxObjectBool(pool, gad, id, type_major, type_minor));
     case 3:
-        return new KnxObject3Bits(gad, id, type_major, type_minor);
+        return KnxObjectPtr(new KnxObject3Bits(pool, gad, id, type_major, type_minor));
     case 5:
-        return new KnxObjectUnsigned8(gad, id, type_major, type_minor);
+        return KnxObjectPtr(new KnxObjectUnsigned8(pool, gad, id, type_major, type_minor));
     case 7:
-        return new KnxObjectUnsigned16(gad, id, type_major, type_minor);
+        return KnxObjectPtr(new KnxObjectUnsigned16(pool, gad, id, type_major, type_minor));
     case 9:
-        return new KnxObjectFloat16(gad, id, type_major, type_minor);
+        return KnxObjectPtr(new KnxObjectFloat16(pool, gad, id, type_major, type_minor));
     case 13:
-        return new KnxObjectSigned32(gad, id, type_major, type_minor);
+        return KnxObjectPtr(new KnxObjectSigned32(pool, gad, id, type_major, type_minor));
     case 14:
-        return new KnxObjectFloat(gad, id, type_major, type_minor);
+        return KnxObjectPtr(new KnxObjectFloat(pool, gad, id, type_major, type_minor));
     default:
-        return new KnxObject(gad, id, type_major, type_minor);
+        return KnxObjectPtr(new KnxObject(pool, gad, id, type_major, type_minor));
     }
 }

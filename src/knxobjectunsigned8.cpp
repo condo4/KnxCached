@@ -25,15 +25,14 @@ static map<unsigned short, struct Param> _decode = {
     {5,  {"DecimalFactor", "ratio", 0, 1}}
 };
 
-KnxObjectUnsigned8::KnxObjectUnsigned8(unsigned short gad, const string &id, unsigned char type_major, unsigned char type_minor):
-    KnxObject(gad, id, type_major, type_minor, KnxData::Real)
+KnxObjectUnsigned8::KnxObjectUnsigned8(KnxObjectPool &pool, unsigned short gad, const string &id, unsigned char type_major, unsigned char type_minor)
+    : KnxObject(pool, gad, id, type_major, type_minor, KnxData::Real)
+    , _idx(_type.minor)
 {
-    unsigned short idx = _type.minor;
-    if(_decode.find(idx) == _decode.end())
+    if(_decode.find(_idx) == _decode.end())
     {
-        idx = 0;
+        _idx = 0;
     }
-    _param = &(_decode[idx]);
 }
 
 KnxObjectUnsigned8::~KnxObjectUnsigned8()
@@ -50,8 +49,8 @@ int KnxObjectUnsigned8::_knxDecode(const std::vector<unsigned char> &frame, KnxD
     }
 
     double fdata = frame[2];
-    fdata /= (255.0 / _param->max_value);
-    fdata -= _param->min_value;
+    fdata /= (255.0 / _decode[_idx].max_value);
+    fdata -= _decode[_idx].min_value;
 
     if(CompareDoubles(result.value_real, fdata))
     {
@@ -67,15 +66,15 @@ void KnxObjectUnsigned8::_knxEncode(const KnxData &data, std::vector<unsigned ch
     frame[0] = 0x00;
     frame[1] = 0x00;
     double fdata = data.value_real;
-    fdata += _param->min_value;
-    fdata *= (255.0 / _param->max_value);
+    fdata += _decode[_idx].min_value;
+    fdata *= (255.0 / _decode[_idx].max_value);
 
     frame[2] = static_cast<unsigned char>(fdata);
 }
 
 string KnxObjectUnsigned8::unity() const
 {
-    return _decode[_type.minor].unity;
+    return _decode[_idx].unity;
 }
 
 string KnxObjectUnsigned8::value() const

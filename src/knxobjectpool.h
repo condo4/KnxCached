@@ -8,12 +8,10 @@
 
 #include "knxobject.h"
 
-
 class KnxObjectPool
 {
 private:
-    static KnxObjectPool* _instance;
-    std::map<unsigned short, KnxObject*> _pool;
+    std::map<unsigned short, KnxObjectPtr> _pool;
     EIBConnection *_connection;
     bool _shutdown;
     std::thread _thread;
@@ -22,8 +20,6 @@ private:
 public:
     explicit KnxObjectPool(std::string conffile);
     virtual ~KnxObjectPool();
-
-    static KnxObjectPool *instance();
 
     unsigned char type(unsigned short addr) const;
     void addEventForAll(KnxEventFifo *ev) const;
@@ -34,8 +30,8 @@ public:
     void join();
     int send(unsigned short dest, std::vector<unsigned char> data);
 
-    int getObjIds(std::vector<const char *> &param) const;
-    KnxObject *getObjById(const char *id);
-    KnxObject *getObjById(const std::string& id);
-    const KnxObject *getObjByGad(unsigned short addr) const;
+    int getObjIds(std::vector<std::string> &param) const;
+    KnxObjectPtr getObjById(const std::string &id);
+    const KnxObjectPtr getObjByGad(unsigned short addr) const;
 };
+

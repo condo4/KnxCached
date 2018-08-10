@@ -4,10 +4,10 @@
 
 class KnxObjectUnsigned8: public KnxObject
 {
-    struct Param *_param;
+    unsigned short _idx;
 
 public:
-    KnxObjectUnsigned8(unsigned short gad, const std::string &id, unsigned char type_major, unsigned char type_minor);
+    KnxObjectUnsigned8(KnxObjectPool &pool, unsigned short gad, const std::string &id, unsigned char type_major, unsigned char type_minor);
     virtual ~KnxObjectUnsigned8();
     virtual int _knxDecode(const std::vector<unsigned char> &frame, KnxData &result);
     virtual void _knxEncode(const KnxData &data, std::vector<unsigned char> &frame);

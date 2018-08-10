@@ -2,19 +2,19 @@
 
 #include <vector>
 #include <thread>
+#include "knxscpiclient.h"
+#include "knxobjectpool.h"
 
-class KnxObjectPool;
-class KnxScpiClient;
 
 class KnxScpiServer
 {
-    KnxObjectPool *_pool;
-    std::vector<KnxScpiClient *> _clients;
+    KnxObjectPool &_pool;
+    std::vector<KnxScpiClientPtr> _clients;
     bool _shutdown;
     std::thread _threadServer;
 
 public:
-    explicit KnxScpiServer(KnxObjectPool *pool);
+    explicit KnxScpiServer(KnxObjectPool &pool);
     virtual ~KnxScpiServer();
 
     bool shutdown() const;
@@ -23,6 +23,8 @@ public:
     void join();
     void checkClients();
 
-    KnxScpiClient *createClient(int serverFd);
-    KnxObjectPool *pool() const;
+    KnxScpiClientPtr createClient(int serverFd);
+    KnxObjectPool &pool() const;
 };
+
+typedef std::shared_ptr<KnxScpiServer> KnxScpiServerPtr;

@@ -7,6 +7,8 @@
 
 #include "knxdata.h"
 
+class KnxObjectPool;
+
 #define EPSILON 0.000001
 inline bool CompareDoubles (double A, double B)
 {
@@ -36,6 +38,7 @@ class KnxEventFifo;
 class KnxObject
 {
 private:
+    KnxObjectPool &_pool;
     unsigned short _gad;
     unsigned char _flag;
     bool _initialized;
@@ -54,7 +57,7 @@ protected:
 
 
 public:
-    KnxObject(unsigned short gad, const std::string &id, unsigned char type_major, unsigned char type_minor, KnxData::Type type = KnxData::Unknow, unsigned char flag = FLAG_DEF);
+    KnxObject(KnxObjectPool &pool, unsigned short gad, const std::string &id, unsigned char type_major, unsigned char type_minor, KnxData::Type type = KnxData::Unknow, unsigned char flag = FLAG_DEF);
     virtual ~KnxObject();
 
     void knxCmdWrite(const std::vector<unsigned char> &frame);
@@ -77,4 +80,4 @@ public:
 
 typedef std::shared_ptr<KnxObject> KnxObjectPtr;
 
-KnxObject *factoryKnxObject(unsigned short gad, std::string id, const char *type);
+KnxObjectPtr factoryKnxObject(KnxObjectPool &pool, unsigned short gad, std::string id, const char *type);

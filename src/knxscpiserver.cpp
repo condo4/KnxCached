@@ -15,12 +15,7 @@
 using namespace std;
 
 
-KnxObjectPool *KnxScpiServer::pool() const
-{
-    return _pool;
-}
-
-KnxScpiServer::KnxScpiServer(KnxObjectPool *pool):
+KnxScpiServer::KnxScpiServer(KnxObjectPool &pool):
     _pool(pool),
     _shutdown(false)
 {
@@ -31,14 +26,18 @@ KnxScpiServer::~KnxScpiServer()
 {
     while(_clients.size())
     {
-        KnxScpiClient *cl = _clients.at(0);
+        KnxScpiClientPtr cl = _clients.at(0);
         log_time();
         cout << "Need close client" <<endl;
         cl->stop();
         cl->join();
         _clients.erase(_clients.begin());
-        delete cl;
     }
+}
+
+KnxObjectPool &KnxScpiServer::pool() const
+{
+    return _pool;
 }
 
 bool KnxScpiServer::shutdown() const
@@ -64,7 +63,7 @@ void KnxScpiServer::start()
             /* Prepare the sockaddr_in structure */
             struct sockaddr_in server;
             server.sin_family = AF_INET;
-            server.sin_addr.s_addr = INADDR_ANY;
+            server.sin_addr.s_addr = 0; // INADDR_ANY
             server.sin_port = htons( 6721 );
 
             /* Bind socket */
@@ -114,7 +113,7 @@ void KnxScpiServer::start()
 
 void KnxScpiServer::stop()
 {
-    for(KnxScpiClient *client : _clients)
+    for(KnxScpiClientPtr client : _clients)
     {
         client->stop();
     }
@@ -123,7 +122,7 @@ void KnxScpiServer::stop()
 
 void KnxScpiServer::join()
 {
-    for(KnxScpiClient *client : _clients)
+    for(KnxScpiClientPtr client : _clients)
     {
         client->join();
     }
@@ -152,19 +151,18 @@ void KnxScpiServer::checkClients()
         }
         if(findone)
         {
-            KnxScpiClient *cl = _clients.at(todel);
+            KnxScpiClientPtr cl = _clients.at(todel);
             log_time();
             cl->join();
             _clients.erase(_clients.begin() + todel);
-            delete cl;
             loop = true;
         }
     }
 }
 
-KnxScpiClient *KnxScpiServer::createClient(int serverFd)
+KnxScpiClientPtr KnxScpiServer::createClient(int serverFd)
 {
-    KnxScpiClient *client = new KnxScpiClient(this, serverFd);
+    KnxScpiClientPtr client = KnxScpiClientPtr(new KnxScpiClient(*this, serverFd));
     _clients.push_back(client);
     return client;
 }

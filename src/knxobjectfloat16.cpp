@@ -12,8 +12,8 @@ using namespace std;
 
 
 
-KnxObjectFloat16::KnxObjectFloat16(unsigned short gad, const string &id, unsigned char type_major, unsigned char type_minor):
-    KnxObject(gad, id, type_major, type_minor, KnxData::Real)
+KnxObjectFloat16::KnxObjectFloat16(KnxObjectPool &pool, unsigned short gad, const string &id, unsigned char type_major, unsigned char type_minor):
+    KnxObject(pool, gad, id, type_major, type_minor, KnxData::Real)
 {
 }
 

@@ -16,8 +16,6 @@
 
 using namespace std;
 
-KnxObjectPool* KnxObjectPool::_instance = nullptr;
-
 KnxObjectPool::KnxObjectPool(string conffile):
     _shutdown(false)
 {
@@ -87,7 +85,7 @@ KnxObjectPool::KnxObjectPool(string conffile):
             xmlFree(gad);
             continue;
         }
-        _pool[rgad] = factoryKnxObject(rgad, reinterpret_cast<char*>(id), reinterpret_cast<char*>(type));
+        _pool[rgad] = factoryKnxObject(*this, rgad, reinterpret_cast<char*>(id), reinterpret_cast<char*>(type));
         xmlFree(id);
         xmlFree(type);
         xmlFree(gad);
@@ -99,25 +97,13 @@ KnxObjectPool::KnxObjectPool(string conffile):
 
     xmlFreeDoc(doc);
     xmlCleanupParser();
-
-    _instance = this;
 }
 
 KnxObjectPool::~KnxObjectPool()
 {
-    for(auto obj: _pool)
-    {
-        delete obj.second;
-    }
     EIBClose(_connection);
 }
 
-
-
-KnxObjectPool *KnxObjectPool::instance()
-{
-    return _instance;
-}
 
 void KnxObjectPool::addEventForAll(KnxEventFifo *ev) const
 {
@@ -212,37 +198,33 @@ int KnxObjectPool::send(unsigned short dest, std::vector<unsigned char> data)
     return EIBSendGroup(_connection, dest, static_cast<int>(data.size()), data.data());
 }
 
-int KnxObjectPool::getObjIds(std::vector<const char *> &param) const
+
+int KnxObjectPool::getObjIds(std::vector<std::string> &param) const
 {
     for(auto obj: _pool)
     {
-        const KnxObject *kobj = obj.second;
-        param.push_back(kobj->id().c_str());
+        const KnxObjectPtr kobj = obj.second;
+        param.push_back(kobj->id());
     }
     return static_cast<int>(_pool.size());
 }
 
-KnxObject *KnxObjectPool::getObjById(const char *id)
+KnxObjectPtr KnxObjectPool::getObjById(const std::string &id)
 {
     for(auto obj: _pool)
     {
-        KnxObject *kobj = obj.second;
-        if(kobj->id() == string(id))
+        KnxObjectPtr kobj = obj.second;
+        if(kobj->id() == id)
             return kobj;
     }
     return nullptr;
 }
 
-KnxObject *KnxObjectPool::getObjById(const string& id)
-{
-    return getObjById(id.c_str());
-}
-
-const KnxObject *KnxObjectPool::getObjByGad(unsigned short addr) const
+const KnxObjectPtr KnxObjectPool::getObjByGad(unsigned short addr) const
 {
     for(auto obj: _pool)
     {
-        const KnxObject *kobj = obj.second;
+        const KnxObjectPtr kobj = obj.second;
         if(kobj->gad() == addr)
             return kobj;
     }
