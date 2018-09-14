@@ -12,11 +12,12 @@
 #include <libxml/xpath.h>
 #include <libxml/xpathInternals.h>
 
+
 #include "eibclient.h"
 
 using namespace std;
 
-KnxObjectPool::KnxObjectPool(string conffile)
+KnxObjectPool::KnxObjectPool(void *context, string conffile)
     : _connection(nullptr)
     , _shutdown(false)
     , _read({0,})
@@ -93,16 +94,22 @@ KnxObjectPool::KnxObjectPool(string conffile)
         xmlFree(gad);
     }
 
+
+
     /* Cleanup of XPath data */
     xmlXPathFreeObject(xpathObj);
     xmlXPathFreeContext(xpathCtx);
 
     xmlFreeDoc(doc);
     xmlCleanupParser();
+
+    _pub = zmq_socket(context, ZMQ_PUB);
+    zmq_bind(_pub, "tcp://*:5563");
 }
 
 KnxObjectPool::~KnxObjectPool()
 {
+    zmq_close (_pub);
     EIBClose(_connection);
 }
 
@@ -198,6 +205,18 @@ void KnxObjectPool::join()
 int KnxObjectPool::send(unsigned short dest, std::vector<unsigned char> data)
 {
     return EIBSendGroup(_connection, dest, static_cast<int>(data.size()), data.data());
+}
+
+int KnxObjectPool::publish(string topic, string value)
+{
+    string str = topic + " " + value;
+    cout << "PUB: " << str << endl;
+    zmq_msg_t message;
+    zmq_msg_init_size (&message, str.length());
+    memcpy (zmq_msg_data (&message), str.data(), str.size());
+    int rc = zmq_msg_send (&message, _pub, 0);
+    zmq_msg_close (&message);
+    return rc;
 }
 
 

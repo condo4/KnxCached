@@ -16,9 +16,10 @@ private:
     bool _shutdown;
     std::thread _thread;
     fd_set _read;
+    void *_pub;
 
 public:
-    explicit KnxObjectPool(std::string conffile);
+    explicit KnxObjectPool(void *context, std::string conffile);
     virtual ~KnxObjectPool();
 
     unsigned char type(unsigned short addr) const;
@@ -29,6 +30,7 @@ public:
     void start();
     void join();
     int send(unsigned short dest, std::vector<unsigned char> data);
+    int publish(std::string topic, std::string value);
 
     int getObjIds(std::vector<std::string> &param) const;
     KnxObjectPtr getObjById(const std::string &id);

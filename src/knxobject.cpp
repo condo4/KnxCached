@@ -130,6 +130,7 @@ void KnxObject::_valueChanged() const
     data.knxtype = _type;
     data.unity = unity();
     data.text = value();
+    _pool.publish(_id, data.text + " " + data.unity);
 
     for(KnxEventFifo *fifo: _events)
     {

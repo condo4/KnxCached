@@ -7,6 +7,8 @@
 #include <argp.h>
 #include <unistd.h>
 
+#include <zmq.h>
+
 #include "common.h"
 #include "knxobjectpool.h"
 #include "knxscpiserver.h"
@@ -91,6 +93,7 @@ int main(int argc, char** argv)
 {
     struct arguments arguments;
     struct sigaction sa;
+    void * zmq_context = zmq_ctx_new ();
 
     /* Default values. */
     arguments.verbose = 0;
@@ -110,7 +113,7 @@ int main(int argc, char** argv)
     }
 
     cout << "Using configuration file " << arguments.conf_file << endl;
-    apps.pool = std::unique_ptr<KnxObjectPool>(new KnxObjectPool(arguments.conf_file));
+    apps.pool = std::unique_ptr<KnxObjectPool>(new KnxObjectPool(zmq_context, arguments.conf_file));
 
     KnxEventFifo catchallFifo;
     thread catchallProcess(
@@ -145,6 +148,8 @@ int main(int argc, char** argv)
     catchallProcess.join();
     log_time();
     cout << "All thread halted" << endl;
+
+    zmq_term (zmq_context);
 
     return 0;
 }
