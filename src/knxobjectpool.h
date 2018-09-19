@@ -6,6 +6,8 @@
 #include <memory>
 #include <eibclient.h>
 
+#include <nng/nng.h>
+
 #include "knxobject.h"
 
 class KnxObjectPool
@@ -15,11 +17,13 @@ private:
     EIBConnection *_connection;
     bool _shutdown;
     std::thread _thread;
+    std::thread _responder;
     fd_set _read;
-    void *_pub;
+    nng_socket _pub;
+    nng_socket _rep;
 
 public:
-    explicit KnxObjectPool(void *context, std::string conffile);
+    explicit KnxObjectPool(std::string conffile);
     virtual ~KnxObjectPool();
 
     unsigned char type(unsigned short addr) const;

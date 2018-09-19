@@ -77,6 +77,8 @@ public:
     virtual std::string value() const;
     virtual void setValue(const std::string &val);
     bool initialized() const;
+    unsigned char type() const;
+    unsigned long long raw() const;
 };
 
 

@@ -138,6 +138,16 @@ void KnxObject::_valueChanged() const
     }
 }
 
+unsigned char KnxObject::type() const
+{
+    return _value.type;
+}
+
+unsigned long long KnxObject::raw() const
+{
+    return _value.value_unsigned;
+}
+
 int KnxObject::_knxDecode(const std::vector<unsigned char> &frame, KnxData &result)
 {
     cerr << "Error Generic KnxObject::_knxDecode for " << _id << endl;

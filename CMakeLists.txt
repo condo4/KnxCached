@@ -19,11 +19,15 @@ file(GLOB LIB_HEADERS_FILES
     src/*.h
 )
 
+include_directories("src")
+add_subdirectory(src/libnng)
+
 file(GLOB_RECURSE PublicHeader "include/*.h*")
 add_custom_target(private_headers SOURCES ${LIB_HEADERS_FILES})
 add_custom_target(public_headers SOURCES ${PublicHeader})
 
 add_executable (knxcached ${LIB_SOURCES_FILES})
-target_link_libraries(knxcached ${LIBXML2_LIBRARIES} eibclient zmq ${CMAKE_THREAD_LIBS_INIT})
+add_dependencies(knxcached nng)
+target_link_libraries(knxcached ${LIBXML2_LIBRARIES} eibclient nng ${CMAKE_THREAD_LIBS_INIT})
 
 install(TARGETS knxcached RUNTIME DESTINATION /usr/bin)
