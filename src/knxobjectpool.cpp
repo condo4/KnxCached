@@ -12,6 +12,10 @@
 #include <libxml/xpath.h>
 #include <libxml/xpathInternals.h>
 
+#include <zmq.h>
+#include <string.h>
+
+
 
 #include "eibclient.h"
 
@@ -209,11 +213,29 @@ int KnxObjectPool::send(unsigned short dest, std::vector<unsigned char> data)
 
 int KnxObjectPool::publish(string topic, string value)
 {
-    string str = topic + " " + value;
+    string str = "text." + topic + " " + value;
     cout << "PUB: " << str << endl;
     zmq_msg_t message;
     zmq_msg_init_size (&message, str.length());
     memcpy (zmq_msg_data (&message), str.data(), str.size());
+    int rc = zmq_msg_send (&message, _pub, 0);
+    zmq_msg_close (&message);
+    return rc;
+}
+
+int KnxObjectPool::publish(unsigned short gad, const KnxDataChanged &data)
+{
+    /* "b" <u16 GAD> <u8 type> <u64 value> */
+
+    zmq_msg_t message;
+    zmq_msg_init_size (&message, 12);
+    memcpy (static_cast<unsigned char *>(zmq_msg_data (&message)) + 0, "b", 1);
+    unsigned short egad = htobe16(gad);
+    memcpy (static_cast<unsigned char *>(zmq_msg_data (&message)) + 1, &egad, 2);
+    unsigned char type = data.data.type;
+    memcpy (static_cast<unsigned char *>(zmq_msg_data (&message)) + 3, &type, 1);
+    unsigned long long edata = htobe64(data.data.value_unsigned);
+    memcpy (static_cast<unsigned char *>(zmq_msg_data (&message)) + 4, &edata, 8);
     int rc = zmq_msg_send (&message, _pub, 0);
     zmq_msg_close (&message);
     return rc;

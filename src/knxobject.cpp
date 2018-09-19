@@ -130,7 +130,7 @@ void KnxObject::_valueChanged() const
     data.knxtype = _type;
     data.unity = unity();
     data.text = value();
-    _pool.publish(_id, data.text + " " + data.unity);
+    _publish(data);
 
     for(KnxEventFifo *fifo: _events)
     {
@@ -151,6 +151,12 @@ void KnxObject::_knxEncode(const KnxData &data, std::vector<unsigned char> &fram
     UNUSED(frame);
     UNUSED(data);
     cerr << "Error Generic KnxObject::_knxEncode for " << _id << endl;
+}
+
+void KnxObject::_publish(const KnxDataChanged &data) const
+{
+    _pool.publish(_id, data.text + " " + data.unity);
+    _pool.publish(_gad, data);
 }
 
 

@@ -41,7 +41,7 @@ objectlist = []
 
 def processRange(rng, lvl, name = []):
     names = copy.copy(name)
-    new_names = rng.attrib['Name'].title().replace("/","").split()
+    new_names = rng.attrib['Name'].title().replace("/","").replace(".","_").lower().split()
     for i in names:
         for s in i:
             if s in new_names:
@@ -51,7 +51,7 @@ def processRange(rng, lvl, name = []):
         for r in rng.getchildren():
             processRange(r,lvl + 1, names)
     elif "GroupAddress" in rng.tag:
-        idname = "_".join([  "".join(s) for s in names])
+        idname = ".".join([  "".join(s) for s in names])
         if "DatapointType" in rng.attrib.keys():
             datatype = Datatype(rng.attrib['DatapointType'])
         else:

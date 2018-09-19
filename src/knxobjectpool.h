@@ -31,6 +31,7 @@ public:
     void join();
     int send(unsigned short dest, std::vector<unsigned char> data);
     int publish(std::string topic, std::string value);
+    int publish(unsigned short gad, const KnxDataChanged &data);
 
     int getObjIds(std::vector<std::string> &param) const;
     KnxObjectPtr getObjById(const std::string &id);

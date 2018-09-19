@@ -6,6 +6,7 @@
 #include <memory>
 
 #include "knxdata.h"
+#include "knxdatachanged.h"
 
 class KnxObjectPool;
 
@@ -54,6 +55,7 @@ protected:
     /* Return 0 if nothing, 1 if change, -1 if error */
     virtual int _knxDecode(const std::vector<unsigned char> &frame, KnxData &result);
     virtual void _knxEncode(const KnxData &data, std::vector<unsigned char> &frame);
+    virtual void _publish(const KnxDataChanged &data) const;
 
 
 public:

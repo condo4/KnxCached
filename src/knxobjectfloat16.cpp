@@ -80,6 +80,8 @@ string KnxObjectFloat16::unity() const
         return "Lux";
     case 7:
         return "%";
+    case 24:
+        return "kW";
     default:
         return "";
     }
