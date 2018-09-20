@@ -52,9 +52,10 @@ int KnxObjectUnsigned8::_knxDecode(const std::vector<unsigned char> &frame, KnxD
     fdata /= (255.0 / _decode[_idx].max_value);
     fdata -= _decode[_idx].min_value;
 
-    if(CompareDoubles(result.value_real, fdata))
+    unsigned short val = static_cast<unsigned short>(fdata);
+    if(val != result.value_unsigned)
     {
-        result.value_real = fdata;
+        result.value_unsigned = val;
         return 1;
     }
     return 0;
@@ -80,6 +81,6 @@ string KnxObjectUnsigned8::unity() const
 string KnxObjectUnsigned8::value() const
 {
     stringstream wss;
-    wss << _value.value_real;
+    wss << _value.value_unsigned;
     return wss.str();
 }
