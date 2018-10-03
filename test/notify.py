@@ -6,7 +6,6 @@
 
 
 import sys
-#import zmq
 from nanomsg import Socket, SUB, SUB_SUBSCRIBE
 import struct
 
@@ -23,19 +22,19 @@ with Socket(SUB) as socket:
         if res[0] != 0x62:
             print(res.decode("utf-8"))
         else:
-            gad = struct.unpack('>H', res[1:3])[0]
+            gad = struct.unpack('<H', res[1:3])[0]
             print("%i/%i/%i: "%( ((gad >> 11) & 0x1f), (gad >> 8) & 0x07, gad & 0xFF), end="" )
             if res[3] == 1:
                 # Signed
-                val = struct.unpack('>q', res[4:])
+                val = struct.unpack('<q', res[4:])
                 print(val[0])
             elif res[3] == 2:
                 # Unsigned
-                val = struct.unpack('>Q', res[4:])
+                val = struct.unpack('<Q', res[4:])
                 print(val[0])
             elif res[3] == 3:
                 # Float
-                val = struct.unpack('>d', res[4:])
+                val = struct.unpack('<d', res[4:])
                 print(val[0])
             else:
                 # UNKNOWN

@@ -235,7 +235,7 @@ void KnxObjectPool::start()
                         KnxObjectPtr obj = getObjById(str.substr(5));
                         if(obj)
                         {
-                            unsigned short gad = htobe16(obj->gad());
+                            unsigned short gad = htole16(obj->gad());
                             nng_send(_rep, &gad, 2, 0);
                         }
                         else
@@ -264,7 +264,7 @@ void KnxObjectPool::start()
                         {
                             unsigned char msgp[9];
                             unsigned char type = obj->type();
-                            unsigned long long edata = htobe64(obj->raw());
+                            unsigned long long edata = htole64(obj->raw());
                             if(!obj->initialized())
                             {
                                 type |= 0x7;
@@ -327,11 +327,11 @@ int KnxObjectPool::publish(unsigned short gad, const KnxDataChanged &data)
     int rc = 0;
     unsigned char msgp[12];
     memcpy (msgp + 0, "b", 1);
-    unsigned short egad = htobe16(gad);
+    unsigned short egad = htole16(gad);
     memcpy (msgp + 1, &egad, 2);
     unsigned char type = data.data.type;
     memcpy (msgp + 3, &type, 1);
-    unsigned long long edata = htobe64(data.data.value_unsigned);
+    unsigned long long edata = htole64(data.data.value_unsigned);
     memcpy (msgp + 4, &edata, 8);
     rc = nng_send(_pub, msgp, 12, 0);
 
