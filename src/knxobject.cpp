@@ -4,6 +4,7 @@
 #include <sstream>
 #include <iostream>
 #include <cassert>
+#include <algorithm>
 
 #include "common.h"
 #include "knxdata.h"
@@ -300,6 +301,12 @@ KnxObjectPtr factoryKnxObject(KnxObjectPool &pool, unsigned short gad, string id
 {
     unsigned char type_major = 0;
     unsigned char type_minor = 0;
+    if(id[0] != '/')
+    {
+        std::replace(id.begin(), id.end(), '_', '/');
+        std::replace(id.begin(), id.end(), '.', '/');
+        id.insert(0, "/");
+    }
 
     if(type)
     {
