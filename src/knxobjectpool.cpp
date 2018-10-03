@@ -6,6 +6,7 @@
 #include <thread>
 #include <cassert>
 #include <cstring>
+#include <algorithm>
 
 #include <libxml/encoding.h>
 #include <libxml/tree.h>
@@ -17,6 +18,8 @@
 #include <nng/protocol/reqrep0/rep.h>
 
 #include "eibclient.h"
+
+//#define DEBUG_REQREP
 
 using namespace std;
 
@@ -61,7 +64,7 @@ KnxObjectPool::KnxObjectPool(string conffile)
     xmlChar *url = xmlGetProp(knxdnode, reinterpret_cast<const xmlChar*>("url"));
     _connection = EIBSocketURL (reinterpret_cast<char*>(url));
     if (EIBOpen_GroupSocket (_connection, 0) == -1){
-        std::cout << "Error opening knxd socket (" << reinterpret_cast<char*>(url) << ")" << std::endl;
+        std::cerr << "Error opening knxd socket (" << reinterpret_cast<char*>(url) << ")" << std::endl;
         xmlXPathFreeContext(xpathCtx);
         exit(1);
     }
@@ -136,6 +139,16 @@ KnxObjectPool::~KnxObjectPool()
     EIBClose(_connection);
 }
 
+int KnxObjectPool::_send_string(nng_socket &s, string str)
+{
+    unique_ptr<unsigned char> msgp(new unsigned char[str.length() + 1]);
+    if(msgp)
+    {
+        memcpy (msgp.get(), str.data(), str.size());
+        return nng_send(s, msgp.get(), str.length(), 0);
+    }
+    return -1;
+}
 
 void KnxObjectPool::addEventForAll(KnxEventFifo *ev) const
 {
@@ -229,14 +242,27 @@ void KnxObjectPool::start()
                 {
                     string str(repbuf, sz);
                     nng_free(repbuf, sz);
-
+#if defined(DEBUG_REQREP)
                     cout << "QUERY: " << str << endl;
+#endif
                     if (str.rfind("gad?", 0) == 0) {
-                        KnxObjectPtr obj = getObjById(str.substr(5));
+                        string param = str.substr(5);
+                        if(param[0] != '/')
+                        {
+                            std::replace(param.begin(), param.end(), '_', '/');
+                            std::replace(param.begin(), param.end(), '.', '/');
+                            param.insert(0, "/");
+                        }
+                        KnxObjectPtr obj = getObjById(param);
                         if(obj)
                         {
                             unsigned short gad = htole16(obj->gad());
-                            nng_send(_rep, &gad, 2, 0);
+                            unsigned char msgp[10];
+                            unsigned long long edata = gad;
+                            msgp[0] = 0x62;
+                            msgp[1] = KnxData::Unsigned;
+                            memcpy (msgp + 2, &edata, 2);
+                            nng_send(_rep, msgp, 10, 0);
                         }
                         else
                         {
@@ -279,13 +305,28 @@ void KnxObjectPool::start()
                             string rep("err:invalid_object");
                             nng_send(_rep, const_cast<char*>(rep.data()), rep.length(), 0);
                         }
-
-
+                    }
+                    else if (str.rfind("text?", 0) == 0)
+                    {
+                        KnxObjectPtr obj = getObjById(str.substr(6));
+                        if(obj)
+                        {
+                            if(!obj->initialized())
+                            {
+                                obj->knxSendRead();
+                            }
+                            std::string str = obj->value() + " " + obj->unity();
+                            cout << "TEXT:" << str << endl;
+                            _send_string(_rep, str);
+                        }
+                        else
+                        {
+                            _send_string(_rep, "err:invalid_object");
+                        }
                     }
                     else
                     {
-                        string rep("err:invalid_query");
-                        nng_send(_rep, const_cast<char*>(rep.data()), rep.length(), 0);
+                        _send_string(_rep, "err:invalid_query");
                     }
                 }
             }
@@ -309,16 +350,11 @@ int KnxObjectPool::send(unsigned short dest, std::vector<unsigned char> data)
 
 int KnxObjectPool::publish(string topic, string value)
 {
-    int rc = 0;
-    string str = "text." + topic + " " + value;
+    string str = topic + " " + value;
+#if defined(DEBUG_PUBSUB)
     cout << "PUB: " << str << endl;
-    unique_ptr<unsigned char> msgp(new unsigned char[str.length() + 1]);
-    if(msgp)
-    {
-        memcpy (msgp.get(), str.data(), str.size());
-        rc = nng_send(_pub, msgp.get(), str.length(), 0);
-    }
-    return rc;
+#endif
+    return _send_string(_pub, str);
 }
 
 int KnxObjectPool::publish(unsigned short gad, const KnxDataChanged &data)

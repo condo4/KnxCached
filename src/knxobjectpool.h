@@ -22,6 +22,8 @@ private:
     nng_socket _pub;
     nng_socket _rep;
 
+    int _send_string(nng_socket &s, std::string str);
+
 public:
     explicit KnxObjectPool(std::string conffile);
     virtual ~KnxObjectPool();
