@@ -92,7 +92,7 @@ for src in objectlist:
             current_object = previous[0]
         else:
             current_object = etree.SubElement(parent,"object")
-        current_object.attrib["type"] = src[1]
+        current_object.attrib["dpt"] = src[1]
         current_object.attrib["gad"] = src[2]
         current_object.attrib["id"] = src[0]
 
