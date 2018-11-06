@@ -119,52 +119,56 @@ def decode_message(xml, msg):
             print("%s%s"%(dst, " "*(7 - len(dst))), end='')
             
             decoded = False
-                     
+
             if xml:
-                ids = xml.xpath("//object[@gad=\"" + dst + "\"]/@id")
-                if len(ids):
-                    print("| ", end="")
-                    print(ids[0], end="")
-                    print(" "*(40-len(ids[0])), end="")
-                else:
-                    print("| ", end="")
-                    print(" "*40, end="")
-                
-                dpts = xml.xpath("//object[@gad=\"" + dst + "\"]/@dpt")
-                dpt = None
-                if len(dpts):
-                    dpt = dpts[0]
-                
-                if dpt:
-                    tp = int(dpt.split(".")[0])
-                    tpu = int(dpt.split(".")[1])
-                    if tp == 1:
-                        # Boolean
+                try:
+                    ids = xml.xpath("//object[@gad=\"" + dst + "\"]/@id")
+                    if len(ids):
                         print("| ", end="")
-                        print(DPT_1_CODE[tpu][imsg[7]], end="")
-                        decoded = True
-                    if tp == 2:
-                        # Control + Boolean
+                        print(ids[0], end="")
+                        print(" "*(40-len(ids[0])), end="")
+                    else:
                         print("| ", end="")
-                        if imsg[7] & 0x2 == 2:
-                            print("control ")
-                        else:
-                            print("no control ")
-                        print(DPT_1_CODE[tpu][imsg[7] & 0x1], end="")
-                        decoded = True
-                    if tp == 5:
-                        # UNSIGNED CHAR
-                        print("| %i %s"%((DPT_5_SCALE_UNIT[tpu][0] * imsg[8]) / 255, DPT_5_SCALE_UNIT[tpu][1]),end="")
-                        decoded = True
-                    if tp == 9:
-                        print("| ", end="")
-                        print("%.02f"%DPT_9_DECODE(imsg[8] << 8 | imsg[9]), end='')
-                        print(" %s"%DPT_9_UNIT[tpu], end='')
-                        decoded = True
-                    if tp == 13:
-                        val = imsg[8] << 24 | imsg[9] << 16 | imsg[10] << 8 | imsg[11]
-                        print("| %i %s"%(val, DPT_13_UNIT[tpu]), end='')
-                        decoded = True
+                        print(" "*40, end="")
+
+                    dpts = xml.xpath("//object[@gad=\"" + dst + "\"]/@dpt")
+                    dpt = None
+                    if len(dpts):
+                        dpt = dpts[0]
+
+                    if dpt:
+                        tp = int(dpt.split(".")[0])
+                        tpu = int(dpt.split(".")[1])
+                        if tp == 1:
+                            # Boolean
+                            print("| ", end="")
+                            print(DPT_1_CODE[tpu][imsg[7]], end="")
+                            decoded = True
+                        if tp == 2:
+                            # Control + Boolean
+                            print("| ", end="")
+                            if imsg[7] & 0x2 == 2:
+                                print("control ")
+                            else:
+                                print("no control ")
+                            print(DPT_1_CODE[tpu][imsg[7] & 0x1], end="")
+                            decoded = True
+                        if tp == 5:
+                            # UNSIGNED CHAR
+                            print("| %i %s"%((DPT_5_SCALE_UNIT[tpu][0] * imsg[8]) / 255, DPT_5_SCALE_UNIT[tpu][1]),end="")
+                            decoded = True
+                        if tp == 9:
+                            print("| ", end="")
+                            print("%.02f"%DPT_9_DECODE(imsg[8] << 8 | imsg[9]), end='')
+                            print(" %s"%DPT_9_UNIT[tpu], end='')
+                            decoded = True
+                        if tp == 13:
+                            val = imsg[8] << 24 | imsg[9] << 16 | imsg[10] << 8 | imsg[11]
+                            print("| %i %s"%(val, DPT_13_UNIT[tpu]), end='')
+                            decoded = True
+                except UnicodeEncodeError as err:
+                    print(" [?]", end="")
+                    decoded = True
 
 
             if not decoded:
@@ -293,6 +297,6 @@ if __name__ == "__main__":
             if decode_message(xml, data) == 0x81: # NOTIFY_EOT End of transmission
                 break
         except Exception as err:
-            print("FAIL TO DECODE %s (%s)"%(data, err))
+            print("%s %s (%s)"%(type(err), data, err))
     s.close()
 
