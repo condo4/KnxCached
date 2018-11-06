@@ -2,6 +2,7 @@
 #include <map>
 #include <algorithm>
 #include <iostream>
+#include <memory>
 #include <iomanip>
 #include <ctime>
 #include <string>
@@ -19,14 +20,16 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <sys/time.h>
-
 #include "eibclient.h"
+#include "clientconnection.h"
+#include "clientconnectionssl.h"
+#include "gadobject.h"
 
-#if defined(WITH_SSL_SOCKET)
-#include <openssl/ssl.h>
-#include <openssl/err.h>
+#if defined (WITH_SSL_SOCKET)
+    SSL_CTX *ssl_ctx = nullptr;
 #endif
 
+static std::map<std::string, std::string> server_configuration;
 
 #define DEBUG_QUERY
 //#define DEBUG_DECODE_KNX
@@ -47,123 +50,15 @@
  *  05: Remove to DMZ list
  */
 
-#define CMD_DUMP_CACHED     (0x01)
-#define CMD_SUBSCRIBE       (0x02)
-#define CMD_UNSUBSCRIBE     (0x03)
-#define CMD_SUBSCRIBE_DMZ   (0x04)
-#define CMD_UNSUBSCRIBE_DMZ (0x05)
-#define CMD_REQUEST_VALUE   (0x06)
-#define CMD_SET_VALUE       (0x07)
 
-/*
- * Message Format for notification
- *
- * Message Format:
- *   FLT...
- *
- * F 1 byte: 0xFE (Binary command Type 1)
- * L 1 byte: Len of Message (0 to 255)
- * T 1 byte: Notify Type
- *
- * Type:
- *   0x0X : KNX Message: 2 bytes src_addr, 2 bytes dest_addr, N bytes Payload
- */
-
-#define NOTIFY_KNX_READ     (0b00000000)
-#define NOTIFY_KNX_RESPONSE (0b00000001)
-#define NOTIFY_KNX_WRITE    (0b00000010)
-#define NOTIFY_KNX_MEMWRITE (0b00001010)
-#define NOTIFY_EOT          (0b10000001)
-
-static std::map<std::string, std::string> server_configuration;
 
 static bool running = true;
 static int server_socket = 0;
-static std::vector<int> clients;
-static std::vector<int> dmz;
+
 #if defined(WITH_SSL_SOCKET)
 static int server_socket_ssl = 0;
-static std::map<int, SSL *> ssl_Socks;
 #endif
-static std::map<eibaddr_t, std::vector<unsigned char>> data_cache;
-static std::map<eibaddr_t, std::vector<int>> subscriber;
 
-std::string GroupAddressToString(unsigned short addr)
-{
-    char buff[10];
-    snprintf (buff, 10, "%d/%d/%d", (addr >> 11) & 0x1f, (addr >> 8) & 0x07, (addr) & 0xff);
-    buff[9] = '\0';
-    return std::string(buff);
-}
-
-inline ssize_t sock_send(int sd, const void *buf, size_t n, int flags)
-{
-#if defined (WITH_SSL_SOCKET)
-    if(ssl_Socks.count(sd)) {
-        // SSL Socket
-        return SSL_write(ssl_Socks[sd], buf, static_cast<int>(n));
-    } else {
-#endif
-    return send(sd, buf, n, flags);
-#if defined (WITH_SSL_SOCKET)
-    }
-#endif
-}
-
-void notify_client(unsigned char command, eibaddr_t src, eibaddr_t addr)
-{
-    std::vector<unsigned char> message;
-    message.push_back(0xFE);
-    message.push_back(0x00); /* LEN TO SET AT THE END */
-    message.push_back(command);
-    message.push_back((src >> 8) & 0xFF);
-    message.push_back(src & 0xFF);
-    message.push_back((addr >> 8) & 0xFF);
-    message.push_back(addr & 0xFF);
-
-    if(command == NOTIFY_KNX_RESPONSE || command == NOTIFY_KNX_WRITE)
-    {
-        for(unsigned char c:  data_cache[addr])
-            message.push_back(c);
-    }
-    message[1] = static_cast<unsigned char>(message.size() - 3);
-
-    if((command & 0xF0) == 0x00)
-    {
-        /* KNX command */
-        for(int &sd: subscriber[addr])
-        {
-            sock_send(sd, message.data(), message.size(), 0);
-        }
-
-        for(int &sd: dmz)
-        {
-            if(sock_send(sd, message.data(), message.size(), 0) < static_cast<ssize_t>(message.size()))
-            {
-                std::cerr << "send error! " << std::endl;
-            }
-        }
-    }
-    else
-        std::cout << "? COMMAND" << (command & 0xF0) << std::endl;
-}
-
-
-void send_value_to_client(int sd, eibaddr_t addr)
-{
-    std::vector<unsigned char> message;
-    message.push_back(0xFE);
-    message.push_back(0x00); /* LEN TO SET AT THE END */
-    message.push_back(NOTIFY_KNX_RESPONSE);
-    message.push_back(0);
-    message.push_back(0);
-    message.push_back((addr >> 8) & 0xFF);
-    message.push_back(addr & 0xFF);
-    for(unsigned char c:  data_cache[addr])
-        message.push_back(c);
-    message[1] = static_cast<unsigned char>(message.size() - 3);
-    sock_send(sd, message.data(), message.size(), 0);
-}
 
 void sig_handler(int sig)
 {
@@ -268,9 +163,6 @@ SSL_CTX *create_context()
         std::cerr << "Could not load trusted CA certificates." << std::endl;
         return nullptr;
     }
-
-
-
     return ctx;
 }
 #endif
@@ -297,7 +189,6 @@ std::vector<std::string> split(const std::string& s, char seperator)
 
 int main(int argc, char** argv)
 {
-    const char *message = "KnxCached:2.0";
     unsigned char buffer[1025];  //data buffer of 1K
     ssize_t valread = 0;
     int addrlen = 0;
@@ -337,6 +228,7 @@ int main(int argc, char** argv)
         std::cerr << "Error opening knxd socket (" << server_configuration["knxd_url"] << ")" << std::endl;
         exit(1);
     }
+    GadObject::setKnxd(knxd);
     knxd_socket = EIB_Poll_FD(knxd);
 
 
@@ -372,11 +264,11 @@ int main(int argc, char** argv)
         FD_SET(server_socket, &readfds);
         max_sd = server_socket;
 
-        for(int &sd: clients)
+        for(int sd: ClientConnection::fds())
         {
             if(sd > 0)
             {
-                FD_SET( sd , &readfds);
+                FD_SET(sd, &readfds);
 
                 //highest file descriptor number, need it for the select function
                 if(sd > max_sd)
@@ -411,33 +303,7 @@ int main(int argc, char** argv)
                 std::cerr << "Accept error " << new_socket  << " (" << errno << ")" << std::endl;
                 continue;
             }
-
-            ssl = SSL_new(ctx);
-            SSL_set_fd(ssl, new_socket);
-
-            if (SSL_accept(ssl) <= 0) {
-                std::cerr << "SSL Accept failed" << std::endl;
-                ERR_print_errors_fp(stderr);
-                SSL_free(ssl_Socks[new_socket]);
-                ssl_Socks.erase(new_socket);
-            }
-            else
-            {
-
-                ssl_Socks[new_socket] = ssl;
-                printf("[%i] SSL Connection %s:%d\n" , new_socket, inet_ntoa(address.sin_addr), ntohs(address.sin_port));
-
-                //send new connection greeting message
-                if( sock_send(new_socket, message, strlen(message), 0) != static_cast<ssize_t>(strlen(message)))
-                {
-                    std::cerr << "send error hello" << std::endl;
-                }
-                else
-                {
-                    //add new socket to array of sockets
-                    clients.push_back(new_socket);
-                }
-            }
+            new ClientConnectionSsl(new_socket, &address);
         }
 #endif
 
@@ -457,230 +323,58 @@ int main(int argc, char** argv)
             }
 
             //inform user of socket number - used in send and receive commands
-            printf("[%i] Connection %s:%d\n" , new_socket, inet_ntoa(address.sin_addr), ntohs(address.sin_port));
-
-            //send new connection greeting message
-            if( sock_send(new_socket, message, strlen(message), 0) != static_cast<ssize_t>(strlen(message)))
-            {
-                std::cerr << "send error hello" << std::endl;
-            }
-            //add new socket to array of sockets
-            clients.push_back(new_socket);
+            new ClientConnection(new_socket, &address);
         }
 
         if (FD_ISSET(knxd_socket, &readfds))
         {
-            EIB_Poll_Complete (knxd);
             len = EIBGetGroup_Src (knxd, sizeof (buffer), buffer, &src, &dest);
             std::vector<unsigned char> data(buffer + 1, buffer + len);
             data[0] &= ~0xC0;
             unsigned char command = static_cast<unsigned char>(((buffer[1] & 0xC0) >> 6) | ((buffer[0] & 0x3)  << 2));
-
-            switch(command)
+            GadObject *object = GadObject::getObject(dest);
+            if(object)
             {
-                case NOTIFY_KNX_READ:
-#if defined(DEBUG_DECODE_KNX)
-                    std::cout << "[KNX] Read[" << len << "]:" << GroupAddressToString(dest) << std::endl;
-#endif
-                    notify_client(command, src, dest);
-                    // TODO:
-                    break;
-                case NOTIFY_KNX_RESPONSE:
-#if defined(DEBUG_DECODE_KNX)
-                    std::cout << "[KNX] Response[" << len << "]:" << GroupAddressToString(dest) << std::endl;
-#endif
-                    if(data_cache.count(dest) == 0 || data_cache[dest] != data)
-                    {
-                        data_cache[dest] = data;
-                        notify_client(command, src, dest);
-                    }
-                    break;
-                case NOTIFY_KNX_WRITE:
-#if defined(DEBUG_DECODE_KNX)
-                    std::cout << "[KNX] Write[" << len << "]: " << GroupAddressToString(dest) << "\t";
-                    for(unsigned char c:  data_cache[dest])
-                        std::cout << std::setfill('0') << std::setw(2) << std::hex << int(c) << std::dec << ":";
-                    std::cout << "\b > ";
-                    for(unsigned char c:  data)
-                        std::cout << std::setfill('0') << std::setw(2) << std::hex << int(c) << std::dec << ":";
-                    std::cout << "\b" << std::endl;
-#endif
-                    if(data_cache.count(dest) == 0 || data_cache[dest] != data)
-                    {
-                        data_cache[dest] = data;
-                        notify_client(command, src, dest);
-                    }
-                    break;
-                case NOTIFY_KNX_MEMWRITE:
-                    notify_client(command, src, dest);
-#if defined(DEBUG_DECODE_KNX)
-                    std::cout << "[KNX] MemoryWrite[" << len << "]:" << GroupAddressToString(dest) << std::endl;
-#endif
-                    break;
-                default:
-                    std::cerr << "[KNX] Unknown Command " << command << " [" << len << "]" << std::endl;
+                switch(command)
+                {
+                    case NOTIFY_KNX_READ:
+                        object->read(src);
+                        break;
+
+                    case NOTIFY_KNX_RESPONSE:
+                        object->response(src, data);
+                        break;
+
+                    case NOTIFY_KNX_WRITE:
+                        object->write(src, data);
+                        break;
+
+                    case NOTIFY_KNX_MEMWRITE:
+                        object->memwrite(src, data);
+                        break;
+
+                    default:
+                        std::cerr << "[KNX] Unknown Command " << command << " [" << len << "]" << std::endl;
+                }
             }
         }
 
-        //else its some IO operation on some other socket :)
-        for (int &sd: clients)
+        //else its some IO operation on Client Connection :)
+        for (int sd: ClientConnection::fds())
         {
-            if (FD_ISSET( sd , &readfds))
+            if (FD_ISSET( sd, &readfds))
             {
                 //Check if it was for closing , and also read the incoming message
-#if defined(WITH_SSL_SOCKET)
-                if(ssl_Socks.count(sd))
+                ClientConnection *client = ClientConnection::getConnection(sd);
+                if(client)
                 {
-                    valread = SSL_read(ssl_Socks[sd], buffer, 1024);
+                    if(!client->incomingData())
+                    {
+                        delete client;
+                    }
                 }
-                else
-                {
-#endif
-                valread = read( sd , buffer, 1024);
-#if defined(WITH_SSL_SOCKET)
-                }
-#endif
-
-                if (valread == 0)
-                {
-                    //Somebody disconnected , get his details and print                   
-#if defined(WITH_SSL_SOCKET)
-                    if(ssl_Socks.count(sd))
-                    {
-                        SSL_free(ssl_Socks[sd]);
-                        ssl_Socks.erase(sd);
-                        getpeername(sd , reinterpret_cast<struct sockaddr*>(&address), reinterpret_cast<socklen_t*>(&addrlen));
-                        printf("[%i] SSL Disconnection %s:%d\n" , sd, inet_ntoa(address.sin_addr) , ntohs(address.sin_port));
-                    }
-                    else
-                    {
-#endif
-                        getpeername(sd , reinterpret_cast<struct sockaddr*>(&address), reinterpret_cast<socklen_t*>(&addrlen));
-                        printf("[%i] Disconnection %s:%d\n", sd, inet_ntoa(address.sin_addr) , ntohs(address.sin_port));
-#if defined(WITH_SSL_SOCKET)
-                    }
-#endif
-
-                    //Close the socket and mark as 0 in list for reuse
-                    dmz.erase(std::remove(dmz.begin(), dmz.end(), sd), dmz.end());
-                    for(auto &i: subscriber)
-                        i.second.erase(std::remove(i.second.begin(), i.second.end(), sd), i.second.end());
-
-                    close( sd );
-                    sd = 0;
-                    continue;
-                }
-
-                unsigned char *buf = buffer;
-                do
-                {
-                    if(buf + 3 + buf[1] > buffer + valread)
-                    {
-                        std::cerr << "Incomplete buffer" << std::endl;
-                        break;
-                    }
-
-                    if(buf[0] == 0xFF)
-                    {
-                        unsigned char len = buf[1];
-                        eibaddr_t addr = 0;
-                        int i;
-                        std::vector<unsigned char> message;
-
-                        switch(buf[2])
-                        {
-                        case CMD_DUMP_CACHED:
-#if defined(DEBUG_QUERY)
-                            std::cout << "[" << sd << "]\t CMD_DUMP_CACHED" << std::endl;
-#endif
-                            for(auto addr: data_cache)
-                                send_value_to_client(sd, addr.first);
-                            /* Send eof */
-                            message.clear();
-                            message.push_back(0xFE);
-                            message.push_back(0x00); /* LEN TO SET AT THE END */
-                            message.push_back(NOTIFY_EOT);
-                            sock_send(sd, message.data(), message.size(), 0);
-                            break;
-                        case CMD_SUBSCRIBE:
-                            if(len != 2)
-                                break;
-                            addr = static_cast<eibaddr_t>(buf[3] << 8 | buf[4]);
-#if defined(DEBUG_QUERY)
-                            std::cout << "[" << sd << "]\t CMD_SUBSCRIBE(" << GroupAddressToString(addr) << ")" << std::endl;
-#endif
-                            subscriber[addr].push_back(sd);
-                            send_value_to_client(sd, addr);
-                            break;
-                        case CMD_UNSUBSCRIBE:
-                            if(len != 2)
-                                break;
-                            addr = static_cast<eibaddr_t>(buf[3] << 8 | buf[4]);
-#if defined(DEBUG_QUERY)
-                            std::cout << "[" << sd << "]\t CMD_UNSUBSCRIBE(" << GroupAddressToString(addr) << ")" << std::endl;
-#endif
-                            subscriber[addr].erase(std::remove(subscriber[addr].begin(), subscriber[addr].end(), sd), subscriber[addr].end());
-                            break;
-                        case CMD_SUBSCRIBE_DMZ:
-#if defined(DEBUG_QUERY)
-                            std::cout << "[" << sd << "]\t CMD_SUBSCRIBE_DMZ" << std::endl;
-#endif
-                            dmz.push_back(sd);
-                            break;
-                        case CMD_UNSUBSCRIBE_DMZ:
-#if defined(DEBUG_QUERY)
-                            std::cout << "[" << sd << "]\t CMD_UNSUBSCRIBE_DMZ" << std::endl;
-#endif
-
-                            dmz.erase(std::remove(dmz.begin(), dmz.end(), sd), dmz.end());
-                            break;
-
-                        case CMD_REQUEST_VALUE:
-                            addr = static_cast<eibaddr_t>(buf[3] << 8 | buf[4]);
-#if defined(DEBUG_QUERY)
-                            std::cout << "[" << sd << "]\t CMD_REQUEST_VALUE(" << GroupAddressToString(addr) << ")" << std::endl;
-#endif
-                            send_value_to_client(sd, addr);
-                            /* Send eof */
-                            message.clear();
-                            message.push_back(0xFE);
-                            message.push_back(0x00); /* LEN TO SET AT THE END */
-                            message.push_back(NOTIFY_EOT);
-                            sock_send(sd, message.data(), message.size(), 0);
-                            break;
-                        case CMD_SET_VALUE:
-                            addr = static_cast<eibaddr_t>(buf[3] << 8 | buf[4]);
-                            message.clear();
-                            for(i = 0; i < buf[1] - 2; i++)
-                            {
-                                message.push_back(buf[i + 5]);
-                            }
-#if defined(DEBUG_QUERY)
-                            std::cout << "[" << sd << "]\t CMD_SET_VALUE(" << GroupAddressToString(addr) << ") ";
-#endif
-                            for(unsigned char c: message)
-                            {
-                                std::cout << std::setw(2) << std::hex << int(c) << std::dec << ":";
-                            }
-                            std::cout << std::endl;
-                            if(data_cache.count(addr) == 0 || data_cache[addr] != message)
-                            {
-                                data_cache[addr] = message;
-                                notify_client(NOTIFY_KNX_WRITE, 0, addr);
-                                EIBSendGroup(knxd, addr, static_cast<int>(message.size()), message.data());
-                            }
-                            break;
-                        default:
-                            std::cerr << "[" << sd << "]\t Received invalid command " << int(buf[2]) << std::endl;
-                            break;
-                        }
-                    }
-                    buf += 3 + buf[1];
-                } while(buf != buffer + valread);
             }
         }
-        clients.erase(std::remove(clients.begin(), clients.end(), 0), clients.end());
-
     } /* Main Loop */
 
     EIBClose(knxd);
@@ -695,11 +389,6 @@ int main(int argc, char** argv)
         cleanup_openssl();
     }
 #endif
-
-    for(int &sd: clients)
-    {
-        close(sd);
-    }
 
     return 0;
 }
