@@ -30,6 +30,14 @@ ClientConnectionSsl::ClientConnectionSsl(int sd, struct sockaddr_in *address)
 ClientConnectionSsl::~ClientConnectionSsl()
 {
     SSL_free(m_ssl);
+    if(m_msgdisconnect)
+    {
+        struct sockaddr_in address;
+        int addrlen;
+        getpeername(m_sd, reinterpret_cast<struct sockaddr*>(&address), reinterpret_cast<socklen_t*>(&addrlen));
+        printf("[%i] SSL Disconnection %s:%d\n" , m_sd, inet_ntoa(address.sin_addr) , ntohs(address.sin_port));
+        m_msgdisconnect = false;
+    }
 }
 
 ssize_t ClientConnectionSsl::write(const std::vector<unsigned char> &data)

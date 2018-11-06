@@ -26,13 +26,17 @@ ClientConnection::ClientConnection(int sd, struct sockaddr_in *address, bool nat
 
 ClientConnection::~ClientConnection()
 {
-    struct sockaddr_in address;
-    int addrlen;
     close( m_sd );
     m_connections.erase(std::remove(m_connections.begin(), m_connections.end(), this), m_connections.end());
     GadObject::forgotClient(this);
-    getpeername(m_sd, reinterpret_cast<struct sockaddr*>(&address), reinterpret_cast<socklen_t*>(&addrlen));
-    printf("[%i] Disconnection %s:%d\n" , m_sd, inet_ntoa(address.sin_addr) , ntohs(address.sin_port));
+    if(m_msgdisconnect)
+    {
+        struct sockaddr_in address;
+        int addrlen;
+        getpeername(m_sd, reinterpret_cast<struct sockaddr*>(&address), reinterpret_cast<socklen_t*>(&addrlen));
+        printf("[%i] Disconnection %s:%d\n" , m_sd, inet_ntoa(address.sin_addr) , ntohs(address.sin_port));
+        m_msgdisconnect = false;
+    }
 }
 
 std::vector<int> ClientConnection::fds()
@@ -217,5 +221,5 @@ ssize_t ClientConnection::read(void *buf, size_t nbytes)
 void ClientConnection::sendEof()
 {
     static std::vector<unsigned char> eof = {0xFE, 0x00, NOTIFY_EOT};
-    send(m_sd, eof.data(), eof.size(), 0);
+    write(eof);
 }

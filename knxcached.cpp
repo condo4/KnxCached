@@ -241,6 +241,7 @@ int main(int argc, char** argv)
         if(ctx)
         {
             server_socket_ssl = create_socket(std::stoi(server_configuration["ssl_server_port"]), "ssl ");
+            ssl_ctx = ctx;
         }
     }
 #endif

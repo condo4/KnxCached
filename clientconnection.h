@@ -24,6 +24,7 @@ class ClientConnection
 protected:
     int m_sd;
     bool m_debug {false};
+    bool m_msgdisconnect {true};
     static std::vector<ClientConnection *> m_connections;
     static std::vector<ClientConnection *> m_dmz;
 
