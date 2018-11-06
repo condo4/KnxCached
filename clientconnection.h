@@ -11,8 +11,9 @@
 #define CMD_SUBSCRIBE_DMZ   (0x04)
 #define CMD_UNSUBSCRIBE_DMZ (0x05)
 #define CMD_REQUEST_VALUE   (0x06)
-#define CMD_SET_VALUE       (0x07)
+#define CMD_SEND_WRITE      (0x07)
 #define CMD_READ            (0x08)
+#define CMD_SETDEBUG        (0x09)
 
 
 
@@ -22,6 +23,7 @@ class ClientConnection
 {
 protected:
     int m_sd;
+    bool m_debug {false};
     static std::vector<ClientConnection *> m_connections;
     static std::vector<ClientConnection *> m_dmz;
 

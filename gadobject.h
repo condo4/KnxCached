@@ -46,6 +46,7 @@ public:
 
     void read(eibaddr_t src);
     void sendRead();
+    void sendWrite(const std::vector<unsigned char> &data);
     void response(eibaddr_t src, const std::vector<unsigned char> &data);
     void write(eibaddr_t src, const std::vector<unsigned char> &data);
     void memwrite(eibaddr_t src, const std::vector<unsigned char> &data);

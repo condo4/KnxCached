@@ -78,6 +78,17 @@ void GadObject::sendRead()
     EIBSendGroup(m_knxd, m_gad, 2, message);
 }
 
+void GadObject::sendWrite(const std::vector<unsigned char> &data)
+{
+    std::cout << "[KNX] Send Write:" << GroupAddressToString(m_gad) << "\t";
+    for(unsigned char c: data)
+        std::cout << std::setfill('0') << std::setw(2) << std::hex << int(c) << std::dec << ":";
+    std::cout << "\b " << std::endl;
+
+    EIBSendGroup(m_knxd, m_gad, data.size(), data.data());
+}
+
+
 void GadObject::response(eibaddr_t src, const std::vector<unsigned char> &data)
 {
     std::cout << "[KNX] Response:" << GroupAddressToString(m_gad) << std::endl;

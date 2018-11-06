@@ -3,11 +3,11 @@
 
 #include <algorithm>
 #include <iostream>
+#include <iomanip>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
-
 
 
 std::vector<ClientConnection *> ClientConnection::m_connections;
@@ -91,7 +91,8 @@ bool ClientConnection::incomingData()
             {
             case CMD_DUMP_CACHED:
             {
-                std::cout << "[" << m_sd << "] CMD_DUMP_CACHED" << std::endl;
+                if(m_debug)
+                    std::cout << "[" << m_sd << "] CMD_DUMP_CACHED" << std::endl;
                 for(GadObject *obj: GadObject::objects())
                     obj->sendResponse(this);
                 /* Send eof */
@@ -103,7 +104,8 @@ bool ClientConnection::incomingData()
                 if(len != 2)
                     break;
                 GadObject *obj = GadObject::getObject(static_cast<eibaddr_t>(buf[3] << 8 | buf[4]));
-                std::cout << "[" << m_sd << "] CMD_SUBSCRIBE " << GroupAddressToString(obj->gad()) << std::endl;
+                if(m_debug)
+                    std::cout << "[" << m_sd << "] CMD_SUBSCRIBE " << GroupAddressToString(obj->gad()) << std::endl;
                 ClientConnection *client = ClientConnection::getConnection(m_sd);
                 if(obj && client)
                 {
@@ -116,7 +118,8 @@ bool ClientConnection::incomingData()
                 if(len != 2)
                     break;
                 GadObject *obj = GadObject::getObject(static_cast<eibaddr_t>(buf[3] << 8 | buf[4]));
-                std::cout << "[" << m_sd << "] CMD_UNSUBSCRIBE " << GroupAddressToString(obj->gad()) << std::endl;
+                if(m_debug)
+                    std::cout << "[" << m_sd << "] CMD_UNSUBSCRIBE " << GroupAddressToString(obj->gad()) << std::endl;
                 ClientConnection *client = ClientConnection::getConnection(m_sd);
                 if(obj && client)
                 {
@@ -126,14 +129,16 @@ bool ClientConnection::incomingData()
             }
             case CMD_SUBSCRIBE_DMZ:
             {
-                std::cout << "[" << m_sd << "] CMD_SUBSCRIBE_DMZ " << std::endl;
+                if(m_debug)
+                    std::cout << "[" << m_sd << "] CMD_SUBSCRIBE_DMZ " << std::endl;
                 ClientConnection *client = ClientConnection::getConnection(m_sd);
                 GadObject::dmzSubscribe(client);
                 break;
             }
             case CMD_UNSUBSCRIBE_DMZ:
             {
-                std::cout << "[" << m_sd << "] CMD_UNSUBSCRIBE_DMZ " << std::endl;
+                if(m_debug)
+                    std::cout << "[" << m_sd << "] CMD_UNSUBSCRIBE_DMZ " << std::endl;
                 ClientConnection *client = ClientConnection::getConnection(m_sd);
                 GadObject::dmzUnsubscribe(client);
                 break;
@@ -141,7 +146,8 @@ bool ClientConnection::incomingData()
             case CMD_REQUEST_VALUE:
             {
                 GadObject *obj = GadObject::getObject(static_cast<eibaddr_t>(buf[3] << 8 | buf[4]));
-                std::cout << "[" << m_sd << "] CMD_REQUEST_VALUE " << GroupAddressToString(obj->gad()) << std::endl;
+                if(m_debug)
+                    std::cout << "[" << m_sd << "] CMD_REQUEST_VALUE " << GroupAddressToString(obj->gad()) << std::endl;
                 if(obj)
                 {
                     obj->sendResponse(this);
@@ -149,9 +155,18 @@ bool ClientConnection::incomingData()
                 }
                 break;
             }
-            case CMD_SET_VALUE:
-#if 0
-                addr = static_cast<eibaddr_t>(buf[3] << 8 | buf[4]);
+            case CMD_SEND_WRITE:
+            {
+                GadObject *obj = GadObject::getObject(static_cast<eibaddr_t>(buf[3] << 8 | buf[4]));
+                if(m_debug)
+                {
+                    std::cout << "[" << m_sd << "]\t CMD_SEND_WRITE(" << GroupAddressToString(addr) << ") [";
+                    for(i = 0; i < buf[1] + 3; i++)
+                    {
+                        std::cout << std::setw(2) << std::hex << int(buf[i]) << std::dec << ":";
+                    }
+                    std::cout << "\b]" <<  std::endl;
+                }
                 message.clear();
                 message.push_back(0);
                 for(i = 0; i < buf[1] - 2; i++)
@@ -159,37 +174,24 @@ bool ClientConnection::incomingData()
                     message.push_back(buf[i + 5]);
                 }
                 message[1] |= 0x80; // WRITE
-#if defined(DEBUG_QUERY)
-                std::cout << "[" << sd << "]\t CMD_SET_VALUE(" << GroupAddressToString(addr) << ") [";
-                for(unsigned char c: message)
-                {
-                    std::cout << std::setw(2) << std::hex << int(c) << std::dec << ":";
-                }
-                std::cout << "\b]" <<  std::endl;
-#endif
-                if(data_cache.count(addr) == 0 || data_cache[addr] != message)
-                {
-                    std::cout << "SEND KNX" << std::endl;
-                    //data_cache[addr] = message;
-                    //notify_client(NOTIFY_KNX_WRITE, 0, addr);
-                    std::cout << "SEND KNX (" << GroupAddressToString(addr) << ") " << message.size()<< ":";
-                    for(unsigned char c: message)
-                    {
-                        std::cout << std::setw(2) << std::hex << int(c) << std::dec << ":";
-                    }
-                    std::cout << "\b]" <<  std::endl;
-                    std::cout << "RESULT:" << EIBSendGroup(knxd, addr, static_cast<int>(message.size()), message.data()) << std::endl;
-                }
-#endif
+                obj->sendWrite(message);
                 break;
+            }
             case CMD_READ:
             {
                 GadObject *obj = GadObject::getObject(static_cast<eibaddr_t>(buf[3] << 8 | buf[4]));
-                std::cout << "[" << m_sd << "] CMD_READ " << GroupAddressToString(obj->gad()) << std::endl;
+                if(m_debug)
+                    std::cout << "[" << m_sd << "] CMD_READ " << GroupAddressToString(obj->gad()) << std::endl;
                 if(obj)
                 {
                     obj->sendRead();
                 }
+                break;
+            }
+            case CMD_SETDEBUG:
+            {
+                m_debug = int(buf[3]) == 1;
+                std::cout << "[" << m_sd << "] CMD_SETDEBUG: " << int(buf[3]) << std::endl;
                 break;
             }
             default:
