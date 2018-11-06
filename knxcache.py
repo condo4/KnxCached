@@ -90,14 +90,23 @@ def DPT_9_DECODE(data):
     return value
 
 
+
 def decode_message(xml, msg):
     def decode_src(msg):
         return "%i.%i.%i"%((msg[3] >> 4) & 0x0F, msg[3] & 0x0F, msg[4])
     def decode_dest(msg):
         return "%i/%i/%i"%((msg[5] >> 3) & 0x1F, msg[5] & 0x07, msg[6])
 
-    if msg[0] == 0xFE:
+    if decode_message.stay != None:
+        msg = decode_message.stay + msg
+        decode_message.stay = None
+
+    if len(msg) > 2 and msg[0] == 0xFE:
         l = msg[1]
+        if len(msg) < 3 + l:
+            decode_message.stay = msg
+            return 0
+            
         
         imsg = msg[0:l+3]
         omsg = msg[l+3:]
@@ -119,7 +128,6 @@ def decode_message(xml, msg):
             print("%s%s"%(dst, " "*(7 - len(dst))), end='')
             
             decoded = False
-
             if xml:
                 try:
                     ids = xml.xpath("//object[@gad=\"" + dst + "\"]/@id")
@@ -136,7 +144,7 @@ def decode_message(xml, msg):
                     if len(dpts):
                         dpt = dpts[0]
 
-                    if dpt:
+                    if dpt and len(imsg) > 7:
                         tp = int(dpt.split(".")[0])
                         tpu = int(dpt.split(".")[1])
                         if tp == 1:
@@ -183,11 +191,11 @@ def decode_message(xml, msg):
 
         if len(omsg):
             return decode_message(xml, omsg)
-        
         return imsg[2]
-    
+    else:
+        decode_message.stay = msg
     return 0
-
+decode_message.stay = None
 
 if __name__ == "__main__":
     with open("/etc/knxcached.conf") as conf:
@@ -202,7 +210,7 @@ if __name__ == "__main__":
 
 
 
-    if (len(sys.argv) < 2) or (((sys.argv[1] == "QUERY") or (sys.argv[1] == "SUBSCRIBE")) and (len(sys.argv) != 3)) or ((sys.argv[1] == "SET") and (len(sys.argv) != 4)) :
+    if (len(sys.argv) < 2) or (((sys.argv[1] == "QUERY") or (sys.argv[1] == "SUBSCRIBE")) and (len(sys.argv) != 3)) or ((sys.argv[1] == "SET") and (len(sys.argv) != 4))  or ((sys.argv[1] == "READ") and (len(sys.argv) != 3)) :
         print("%s QUERY [<addr> | ALL]"%(sys.argv[0]))
         print("%s DMZ"%(sys.argv[0]))
         print("%s SUBSCRIBE <addr>"%(sys.argv[0]))
@@ -282,6 +290,15 @@ if __name__ == "__main__":
         data = bytes([0xFF, 0x02, 0x07, int(taddr[0]) << 3 | int(taddr[1]), int(taddr[2])]) # QUERY ADDR 
         for b in sys.argv[3].split(":"):
             data += bytes([int(b,16)])
+        adata = bytearray(data)
+        adata[1] = len(data) - 3
+        data = bytes(adata)
+        print(data)
+        s.sendall(data)
+        exit(0)
+    elif sys.argv[1] == "READ":
+        taddr = sys.argv[2].split("/")
+        data = bytes([0xFF, 0x02, 0x08, int(taddr[0]) << 3 | int(taddr[1]), int(taddr[2])]) # QUERY ADDR 
         adata = bytearray(data)
         adata[1] = len(data) - 3
         data = bytes(adata)
