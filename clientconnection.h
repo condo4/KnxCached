@@ -17,7 +17,7 @@
 
 
 
-static const std::vector<unsigned char> banner = {'K','n','x','C','a','c','h','e','d',':','2','.','0'};
+static const std::vector<unsigned char> banner = {'K','n','x','C','a','c','h','e','d',':','2','.','0', '\0'};
 
 class ClientConnection
 {
