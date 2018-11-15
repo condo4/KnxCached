@@ -5,6 +5,8 @@
 #include <algorithm>
 #include "command_type.h"
 
+#define DEBUG
+
 std::vector<ClientConnection *> GadObject::m_dmz;
 std::vector<GadObject *> GadObject::m_objects;
 EIBConnection *GadObject::m_knxd = nullptr;
@@ -58,9 +60,15 @@ void GadObject::fromBus(const std::vector<unsigned char> &data, ClientConnection
     unsigned char cmd = static_cast<unsigned char>(((data[6] & 0x03) << 2) | ((data[7] & 0xC0) >> 6));
 
 #if defined(DEBUG)
-    std::cout << "[KNX] Bus notification " << cmd << " for " << GroupAddressToString(m_gad) << ": ";
+    if(sender)
+    {
+        std::cout << "[KNX] From Client: " << cmd << " for " << GroupAddressToString(m_gad) << ": ";
+    }
+    else
+    {
+        std::cout << "[KNX] From Bus: " << cmd << " for " << GroupAddressToString(m_gad) << ": ";
+    }
     dump_telegram(data);
-    std::cout << std::endl;
 #endif
 
     switch(cmd)
@@ -72,13 +80,13 @@ void GadObject::fromBus(const std::vector<unsigned char> &data, ClientConnection
         m_data[0] &= 0x3F;
         m_lastupdate = std::chrono::system_clock::now();
         m_valid = true;
+#if defined(DEBUG)
+        std::cout << "    -> change cache data: ";
+        dump_telegram(m_data);
+        std::cout << std::endl;
+#endif
     }
 
-#if defined(DEBUG)
-    std::cout << "    -> data: ";
-    dump_telegram(m_data);
-    std::cout << std::endl;
-#endif
 
     for(ClientConnection *client: m_subscriber)
     {
@@ -94,37 +102,29 @@ void GadObject::fromBus(const std::vector<unsigned char> &data, ClientConnection
     }
 }
 
-#if 0
-void GadObject::sendRead()
-{
-    std::cout << "[KNX] Send Read: " << GroupAddressToString(m_gad) << std::endl;
-    const uint8_t message[] = {0x00, 0x00};
-    EIBSendGroup(m_knxd, m_gad, 2, message);
-    read(0);
-}
-
-void GadObject::sendWrite(const std::vector<unsigned char> &buffer)
+void GadObject::sendToBus(const std::vector<unsigned char> &buffer, ClientConnection *sender)
 {
     unsigned char cmd = buffer[1] & 0xC0;
-    std::cout << "[KNX] Send " << std::string((cmd == 0x80)?("Write:"):((cmd == 0x40)?("Response:"):("?????:"))) << GroupAddressToString(m_gad) << "\t";
-    for(unsigned char c: buffer)
-        std::cout << std::setfill('0') << std::setw(2) << std::hex << int(c) << std::dec << ":";
-    std::cout << "\b " << std::endl;
-
+    std::cout << "[KNX] Send " << std::string((cmd == 0x80)?("Write: "):((cmd == 0x40)?("Response: "):("Read: "))) << GroupAddressToString(m_gad) << "\t";
+    dump_telegram(buffer);
+    std::cout << std::endl;
     EIBSendGroup(m_knxd, m_gad, buffer.size(), buffer.data());
 
-    std::vector<unsigned char> data(buffer.data() + 1, buffer.data() + buffer.size());
-    data[0] &= ~0xC0;
-    if(cmd == 0x80)
-    {
-        write(0, data);
-    }
-    else if(cmd == 0x40)
-    {
-        response(0, data);
-    }
+    eibaddr_t s = sender->knxaddress();
+    if(s == 0)
+        s = GadObject::IndividualAddress();
+    std::vector<unsigned char> message;
+    message.resize(6);
+    message[0] = TELEGRAM_BEGIN;
+    message[1] = static_cast<unsigned char>(buffer.size() + 7);
+    message[2] = (s >> 8) & 0xFF;
+    message[3] = (s & 0xFF);
+    message[4] = (m_gad >> 8) & 0xFF;
+    message[5] = m_gad & 0xFF;
+    message.insert(message.end(), buffer.begin(), buffer.end());
+    message.push_back(TELEGRAM_END);
+    fromBus(message, sender);
 }
-#endif
 
 void GadObject::sendCacheValueToClient(ClientConnection *client)
 {
@@ -162,7 +162,7 @@ void GadObject::subscribe(ClientConnection *client)
         }
         else
         {
-            /* TODO: Send READ to bus */
+            sendToBus({0x00, 0x00}, client);
         }
     }
 }
@@ -215,4 +215,3 @@ void GadObject::setKnxd(EIBConnection *knxd)
 {
     m_knxd = knxd;
 }
-

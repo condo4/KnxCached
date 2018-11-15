@@ -48,6 +48,7 @@ public:
 
     void fromBus(const std::vector<unsigned char> &data, ClientConnection *sender = nullptr);
     void sendCacheValueToClient(ClientConnection *client);
+    void sendToBus(const std::vector<unsigned char> &buffer, ClientConnection *sender = nullptr);
 
 
     /* OLD API */

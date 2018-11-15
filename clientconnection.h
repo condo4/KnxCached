@@ -4,6 +4,7 @@
 #include <vector>
 #include <sys/types.h>
 #include <netinet/in.h>
+#include "eibclient.h"
 
 static const std::vector<unsigned char> banner = {'K','n','x','C','a','c','h','e','d',':','2','.','0', '\0'};
 
@@ -16,6 +17,7 @@ protected:
     struct sockaddr_in m_address {0,0, {static_cast<in_addr_t>(0xffffffff)}, {0}};
     static std::vector<ClientConnection *> m_connections;
     static std::vector<ClientConnection *> m_dmz;
+    eibaddr_t m_knxaddress {0};
 
 public:
     ClientConnection(int sd, struct sockaddr_in *address, bool native=true);
@@ -29,6 +31,7 @@ public:
     virtual ssize_t read (void *buf, size_t nbytes);
     void sendEof();
     int sd() const;
+    eibaddr_t knxaddress();
 
     bool incomingData();
 };

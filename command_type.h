@@ -36,7 +36,7 @@ inline void dump_telegram(const std::vector<unsigned char> &message)
     std::cout << "[" << std::hex << std::setfill('0') << std::setw(2);
     for(const auto &i: message)
     {
-        std::cout << int(i) << ":";
+        std::cout << std::hex << std::setfill('0') << std::setw(2) << int(i) << ":";
     }
     std::cout << "\b]" << std::dec;
 }

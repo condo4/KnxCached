@@ -363,10 +363,18 @@ if __name__ == "__main__":
         exit(0)
     elif sys.argv[1] == "READ":
         taddr = sys.argv[2].split("/")
-        data = bytes([0xFF, 0x02, 0x08, int(taddr[0]) << 3 | int(taddr[1]), int(taddr[2])]) # QUERY ADDR 
-        adata = bytearray(data)
-        adata[1] = len(data) - 3
-        data = bytes(adata)
+        data = bytes(
+            [
+                CMD["TELEGRAM_BEGIN"],
+                0x09,
+                0x00,
+                0x00,
+                int(taddr[0]) << 3 | int(taddr[1]),
+                int(taddr[2]),
+                CMD["KNX_READ"] >> 2,
+                (CMD["KNX_READ"] & 0x3) << 6, 
+                CMD["TELEGRAM_END"]
+            ])
         print(data)
         s.sendall(data)
         exit(0)

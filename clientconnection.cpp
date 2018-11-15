@@ -133,7 +133,22 @@ bool ClientConnection::incomingData()
         unsigned char* last = buffer + start + buffer[start + 1] - 1;
         std::vector<unsigned char> data(first, last);
         unsigned char cmd = static_cast<unsigned char>(((data[6] & 0x37) << 2) | ((data[7] & 0xC0) >> 6));
+        eibaddr_t src = static_cast<eibaddr_t>(data[2] << 8 | data[3]);
         eibaddr_t dest = static_cast<eibaddr_t>(data[4] << 8 | data[5]);
+        if(src && src != m_knxaddress)
+        {
+            m_knxaddress = src;
+#if defined(DEBUG)
+            std::cout << "[" << m_sd << "] Set Individual address to "
+                      << ((m_knxaddress >> 12) & 0x0F)
+                      << "."
+                      << ((m_knxaddress >> 8) & 0x0F)
+                      << "."
+                      << (m_knxaddress & 0xFF)
+                      << std::endl;
+#endif
+        }
+
         switch(cmd)
         {
             case CMD_DUMP_CACHED:
@@ -190,85 +205,22 @@ bool ClientConnection::incomingData()
                 GadObject::dmzUnsubscribe(client);
                 break;
             }
-/*
-            case CMD_REQUEST_VALUE:
+            case KNX_WRITE:
+            case KNX_RESPONSE:
+            case KNX_READ:
             {
-                GadObject *obj = GadObject::getObject(static_cast<eibaddr_t>(buf[3] << 8 | buf[4]));
-                if(m_debug)
-                    std::cout << "[" << m_sd << "] CMD_REQUEST_VALUE " << GroupAddressToString(obj->gad()) << std::endl;
+                GadObject *obj = GadObject::getObject(dest);
                 if(obj)
                 {
-                    obj->sendResponse(this);
-                    sendEof();
+                    std::vector<unsigned char> kdata(data.begin() + 6, data.end());
+#if defined(DEBUG)
+                    std::cout << "[" << m_sd << "] SEND KNX TELEGRAM";
+                    dump_telegram(kdata);
+                    std::cout << std::endl;
+#endif
+                    obj->sendToBus(kdata, this);
                 }
-                break;
             }
-            case CMD_SEND_WRITE:
-            {
-                GadObject *obj = GadObject::getObject(static_cast<eibaddr_t>(buf[3] << 8 | buf[4]));
-                if(m_debug)
-                {
-                    std::cout << "[" << m_sd << "]\t CMD_SEND_WRITE(" << GroupAddressToString(addr) << ") [";
-                    for(i = 0; i < buf[1] + 3; i++)
-                    {
-                        std::cout << std::setw(2) << std::hex << int(buf[i]) << std::dec << ":";
-                    }
-                    std::cout << "\b]" <<  std::endl;
-                }
-                message.clear();
-                message.push_back(0);
-                for(i = 0; i < buf[1] - 2; i++)
-                {
-                    message.push_back(buf[i + 5]);
-                }
-                message[1] |= 0x80; // WRITE
-                obj->sendWrite(message);
-                break;
-            }
-            case CMD_SEND_RESPONSE:
-            {
-                GadObject *obj = GadObject::getObject(static_cast<eibaddr_t>(buf[3] << 8 | buf[4]));
-                if(m_debug)
-                {
-                    std::cout << "[" << m_sd << "]\t CMD_SEND_RESPONSE(" << GroupAddressToString(addr) << ") [";
-                    for(i = 0; i < buf[1] + 3; i++)
-                    {
-                        std::cout << std::setw(2) << std::hex << int(buf[i]) << std::dec << ":";
-                    }
-                    std::cout << "\b]" <<  std::endl;
-                }
-                message.clear();
-                message.push_back(0);
-                for(i = 0; i < buf[1] - 2; i++)
-                {
-                    message.push_back(buf[i + 5]);
-                }
-                message[1] |= 0x40; // RESPONSE
-                obj->sendWrite(message);
-                break;
-            }
-            case CMD_READ:
-            {
-                GadObject *obj = GadObject::getObject(static_cast<eibaddr_t>(buf[3] << 8 | buf[4]));
-                if(m_debug)
-                    std::cout << "[" << m_sd << "] CMD_READ " << GroupAddressToString(obj->gad()) << std::endl;
-                if(obj)
-                {
-                    obj->sendRead();
-                }
-                break;
-            }
-            case CMD_SETDEBUG:
-            {
-                m_debug = int(buf[3]) == 1;
-                std::cout << "[" << m_sd << "] CMD_SETDEBUG: " << int(buf[3]) << std::endl;
-                break;
-            }
-            default:
-                std::cerr << "[" << m_sd << "]\t Received invalid command " << int(buf[2]) << std::endl;
-                break;
-            }
-*/
         }
 
         /* Next one */
@@ -280,9 +232,12 @@ bool ClientConnection::incomingData()
 ssize_t ClientConnection::write(const std::vector<unsigned char> &data)
 {
 #if defined(DEBUG)
-    std::cout << "[" << m_sd << "] Write : ";
-    dump_telegram(data);
-    std::cout << std::endl;
+    if(data[0] != 'K')
+    {
+        std::cout << "[" << m_sd << "] Write : ";
+        dump_telegram(data);
+        std::cout << std::endl;
+    }
 #endif
     return send(m_sd, data.data(), data.size(), 0);
 }
@@ -305,4 +260,9 @@ void ClientConnection::sendEof()
         eof[7] = (TELEGRAM_EOT & 0x3) << 6;
     }
     write(eof);
+}
+
+eibaddr_t ClientConnection::knxaddress()
+{
+    return m_knxaddress;
 }
