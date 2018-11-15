@@ -3,12 +3,12 @@
 #include <iostream>
 #include <iomanip>
 #include <algorithm>
-
-
+#include "command_type.h"
 
 std::vector<ClientConnection *> GadObject::m_dmz;
 std::vector<GadObject *> GadObject::m_objects;
 EIBConnection *GadObject::m_knxd = nullptr;
+eibaddr_t GadObject::m_individualAddress = 0;
 
 std::string GroupAddressToString(unsigned short addr)
 {
@@ -22,7 +22,9 @@ std::string GroupAddressToString(unsigned short addr)
 GadObject::GadObject(eibaddr_t gad)
     : m_gad(gad)
 {
+#if defined(DEBUG)
     std::cout << "[KNX] Create KNX Object " << GroupAddressToString(gad) << std::endl;
+#endif
 }
 
 eibaddr_t GadObject::gad() const
@@ -30,109 +32,117 @@ eibaddr_t GadObject::gad() const
     return m_gad;
 }
 
-void GadObject::setData(unsigned char command, eibaddr_t src, const std::vector<unsigned char> &data)
+eibaddr_t GadObject::IndividualAddress()
 {
-    m_data = data;
-    std::vector<unsigned char> message;
-    message.push_back(0xFE);
-    message.push_back(0x00); /* LEN TO SET AT THE END */
-    message.push_back(command);
-    message.push_back((src >> 8) & 0xFF);
-    message.push_back(src & 0xFF);
-    message.push_back((m_gad >> 8) & 0xFF);
-    message.push_back(m_gad & 0xFF);
-    for(unsigned char c:  m_data)
-    {
-        message.push_back(c);
-    }
-    message[1] = static_cast<unsigned char>(message.size() - 3);
+    return m_individualAddress;
+}
 
-    if((command & 0xF0) == 0x00)
+void GadObject::setIndividualAddress(eibaddr_t addr)
+{
+    m_individualAddress = addr;
+}
+
+void GadObject::destroy()
+{
+    while(!m_objects.empty())
     {
-        /* KNX command */
-        for(ClientConnection *client: m_subscriber)
-        {
-            client->write(message);
-        }
-        for(ClientConnection *client: m_dmz)
-        {
-            client->write(message);
-        }
-    }
-    else
-    {
-        std::cout << "? COMMAND" << (command & 0xF0) << std::endl;
+        GadObject *obj = m_objects.back();
+        delete obj;
+        m_objects.pop_back();
     }
 }
 
-void GadObject::read(eibaddr_t src)
+void GadObject::fromBus(const std::vector<unsigned char> &data, ClientConnection *sender)
 {
-    std::cout << "[KNX] Read: " << GroupAddressToString(m_gad) << std::endl;
+    /* KNX command */
+    unsigned char cmd = static_cast<unsigned char>(((data[6] & 0x03) << 2) | ((data[7] & 0xC0) >> 6));
 
+#if defined(DEBUG)
+    std::cout << "[KNX] Bus notification " << cmd << " for " << GroupAddressToString(m_gad) << ": ";
+    dump_telegram(data);
+    std::cout << std::endl;
+#endif
+
+    switch(cmd)
+    {
+    case KNX_RESPONSE:
+    case KNX_WRITE:
+        /* Change cache value */
+        m_data = std::vector<unsigned char>(data.begin() + 7, data.end() - 1);
+        m_data[0] &= 0x3F;
+        m_lastupdate = std::chrono::system_clock::now();
+        m_valid = true;
+    }
+
+#if defined(DEBUG)
+    std::cout << "    -> data: ";
+    dump_telegram(m_data);
+    std::cout << std::endl;
+#endif
+
+    for(ClientConnection *client: m_subscriber)
+    {
+        if(client == sender)
+            continue;
+        client->write(data);
+    }
+    for(ClientConnection *client: m_dmz)
+    {
+        if(client == sender)
+            continue;
+        client->write(data);
+    }
 }
 
+#if 0
 void GadObject::sendRead()
 {
     std::cout << "[KNX] Send Read: " << GroupAddressToString(m_gad) << std::endl;
     const uint8_t message[] = {0x00, 0x00};
     EIBSendGroup(m_knxd, m_gad, 2, message);
+    read(0);
 }
 
-void GadObject::sendWrite(const std::vector<unsigned char> &data)
+void GadObject::sendWrite(const std::vector<unsigned char> &buffer)
 {
-    std::cout << "[KNX] Send Write:" << GroupAddressToString(m_gad) << "\t";
-    for(unsigned char c: data)
+    unsigned char cmd = buffer[1] & 0xC0;
+    std::cout << "[KNX] Send " << std::string((cmd == 0x80)?("Write:"):((cmd == 0x40)?("Response:"):("?????:"))) << GroupAddressToString(m_gad) << "\t";
+    for(unsigned char c: buffer)
         std::cout << std::setfill('0') << std::setw(2) << std::hex << int(c) << std::dec << ":";
     std::cout << "\b " << std::endl;
 
-    EIBSendGroup(m_knxd, m_gad, data.size(), data.data());
-}
+    EIBSendGroup(m_knxd, m_gad, buffer.size(), buffer.data());
 
-
-void GadObject::response(eibaddr_t src, const std::vector<unsigned char> &data)
-{
-    std::cout << "[KNX] Response:" << GroupAddressToString(m_gad) << std::endl;
-    if(m_data.size() == 0 || m_data != data)
+    std::vector<unsigned char> data(buffer.data() + 1, buffer.data() + buffer.size());
+    data[0] &= ~0xC0;
+    if(cmd == 0x80)
     {
-        setData(NOTIFY_KNX_RESPONSE, src, data);
+        write(0, data);
+    }
+    else if(cmd == 0x40)
+    {
+        response(0, data);
     }
 }
+#endif
 
-void GadObject::write(eibaddr_t src, const std::vector<unsigned char> &data)
-{
-    std::cout << "[KNX] Write:" << GroupAddressToString(m_gad) << "\t";
-    for(unsigned char c: data)
-        std::cout << std::setfill('0') << std::setw(2) << std::hex << int(c) << std::dec << ":";
-    std::cout << "\b " << std::endl;
-
-    if(m_data.size() == 0 || m_data != data)
-    {
-        setData(NOTIFY_KNX_WRITE, src, data);
-    }
-}
-
-void GadObject::memwrite(eibaddr_t src, const std::vector<unsigned char> &data)
-{
-    std::cout << "[KNX] Memory Write:" << GroupAddressToString(m_gad) << "\t";
-    for(unsigned char c: data)
-        std::cout << std::setfill('0') << std::setw(2) << std::hex << int(c) << std::dec << ":";
-    std::cout << "\b " << std::endl;
-}
-
-void GadObject::sendResponse(ClientConnection *client)
+void GadObject::sendCacheValueToClient(ClientConnection *client)
 {
     std::vector<unsigned char> message;
-    message.push_back(0xFE);
-    message.push_back(0x00); /* LEN TO SET AT THE END */
-    message.push_back(NOTIFY_KNX_RESPONSE);
-    message.push_back(0);
-    message.push_back(0);
-    message.push_back((m_gad >> 8) & 0xFF);
-    message.push_back(m_gad & 0xFF);
-    for(unsigned char c:  m_data)
-        message.push_back(c);
-    message[1] = static_cast<unsigned char>(message.size() - 3);
-    std::cout << "[KNX] " << GroupAddressToString(m_gad) << " send response to " << client->sd() << std::endl;
+    message.resize(8);
+    message[0] = TELEGRAM_BEGIN;
+    message[1] = static_cast<unsigned char>(m_data.size() + 8);
+    message[2] = (m_individualAddress >> 8) & 0xFF;
+    message[3] = m_individualAddress & 0xFF;
+    message[4] = (m_gad >> 8) & 0xFF;
+    message[5] = m_gad & 0xFF;
+    message[6] = (KNX_CACHE_VALUE >> 2) & 0x37;
+    message.insert(message.begin() + 7, m_data.begin(), m_data.end());
+    message[7] = (message[7] & 0x37) | (KNX_CACHE_VALUE & 0x3) << 6;
+    message[7 + m_data.size()] = TELEGRAM_END;
+#if defined(DEBUG)
+    std::cout << "[KNX] " << GroupAddressToString(m_gad) << " send cache value to " << client->sd() << " (len: " << message.size() << ")" <<  std::endl;
+#endif
     client->write(message);
 }
 
@@ -143,14 +153,17 @@ void GadObject::removeAll(ClientConnection *client)
 
 void GadObject::subscribe(ClientConnection *client)
 {
-    m_subscriber.push_back(client);
-    if(m_data.size())
+    if(std::find(m_subscriber.begin(), m_subscriber.end(), client) == m_subscriber.end())
     {
-        sendResponse(client);
-    }
-    else
-    {
-        sendRead();
+        m_subscriber.push_back(client);
+        if(m_valid)
+        {
+            sendCacheValueToClient(client);
+        }
+        else
+        {
+            /* TODO: Send READ to bus */
+        }
     }
 }
 
@@ -187,7 +200,10 @@ const std::vector<GadObject *> &GadObject::objects()
 
 void GadObject::dmzSubscribe(ClientConnection *client)
 {
-    m_dmz.push_back(client);
+    if(std::find(m_dmz.begin(), m_dmz.end(), client) == m_dmz.end())
+    {
+        m_dmz.push_back(client);
+    }
 }
 
 void GadObject::dmzUnsubscribe(ClientConnection *client)

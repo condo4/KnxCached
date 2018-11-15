@@ -13,7 +13,27 @@ xml = None
 
 config = {}
 
- 
+CMD = {
+    "TELEGRAM_BEGIN":       0xC5,
+    "TELEGRAM_END":         0x5C,
+    "TELEGRAM_EOT":         0x80,
+    "KNX_READ":             0x00,
+    "KNX_RESPONSE":         0x01,
+    "KNX_WRITE":            0x02,
+    "KNX_MEMWRITE":         0x0A,
+    "KNX_CACHE_VALUE":      0x11,
+    "CMD_SUBSCRIBE":        0x81,
+    "CMD_UNSUBSCRIBE":      0x82,
+    "CMD_SUBSCRIBE_DMZ":    0x83,
+    "CMD_UNSUBSCRIBE_DMZ":  0x84,
+    "CMD_DUMP_CACHED":      0x85,
+    "CMD_REQUEST_VALUE":    0x86,
+#    "CMD_SETDEBUG":         0x88,
+#    "CMD_SEND_WRITE":       0x87,
+#    "CMD_READ":             0x88,
+#    "CMD_SEND_RESPONSE":    0x8A
+}
+
 DPT_1_CODE = {
      1: ["Off", "On"],
      2: ["False", "True"],
@@ -91,69 +111,81 @@ def DPT_9_DECODE(data):
 
 
 
-def decode_message(xml, msg):
+def decode_message(xml, msg):  
     def decode_src(msg):
-        return "%i.%i.%i"%((msg[3] >> 4) & 0x0F, msg[3] & 0x0F, msg[4])
+        return "%i.%i.%i"%((msg[2] >> 4) & 0x0F, msg[2] & 0x0F, msg[3])
     def decode_dest(msg):
-        return "%i/%i/%i"%((msg[5] >> 3) & 0x1F, msg[5] & 0x07, msg[6])
+        return "%i/%i/%i"%((msg[4] >> 3) & 0x1F, msg[4] & 0x07, msg[5])
 
     if decode_message.stay != None:
         msg = decode_message.stay + msg
         decode_message.stay = None
 
-    if len(msg) > 2 and msg[0] == 0xFE:
+    if len(msg) > 2 and msg[0] == CMD["TELEGRAM_BEGIN"]:
         l = msg[1]
-        if len(msg) < 3 + l:
+        if len(msg) < l:
             decode_message.stay = msg
             return 0
-            
+
+
+        imsg = msg[0:l]
+        omsg = msg[l:]
         
-        imsg = msg[0:l+3]
-        omsg = msg[l+3:]
+#        print("DECODE MESSAGE: %s"%(''.join(format(x, ' 02x') for x in imsg)))
+
+        cmd = (imsg[6] << 2) | ((imsg[7] & 0xC0) >> 6)
+        src = decode_src(imsg)
+        dst = decode_dest(imsg)
         
-        if(imsg[2] & 0xF0 == 0x00):
-            src = decode_src(imsg)
-            dst = decode_dest(imsg)
+        data = bytearray(imsg)
+        data[7] &= 0x3F
+        imsg = bytes(data)
 
-            if imsg[2] == 0x00:
-                print('KRD | ', end='')
-            elif imsg[2] == 0x01:
-                print('KRS | ', end='')
-            elif imsg[2] == 0x02:
-                print('KWR | ', end='')
-            elif imsg[2] == 0x0A:
-                print('KMW | ', end='')
+        if cmd == CMD["KNX_READ"]:
+            print('KRD | ', end='')
+        elif cmd == CMD["KNX_RESPONSE"]:
+            print('KRS | ', end='')
+        elif cmd == CMD["KNX_WRITE"]:
+            print('KWR | ', end='')
+        elif cmd == CMD["KNX_MEMWRITE"]:
+            print('KMW | ', end='')
+        elif cmd == CMD["KNX_CACHE_VALUE"]:
+            print('KCH | ', end='')
+        else:
+            return cmd
 
-            print("%s%s| "%(src, " "*(9 - len(src))), end='')
-            print("%s%s"%(dst, " "*(7 - len(dst))), end='')
-            
-            decoded = False
-            if xml:
-                try:
-                    ids = xml.xpath("//object[@gad=\"" + dst + "\"]/@id")
-                    if len(ids):
-                        print("| ", end="")
-                        print(ids[0], end="")
-                        print(" "*(40-len(ids[0])), end="")
-                    else:
-                        print("| ", end="")
-                        print(" "*40, end="")
+        print("%s%s| "%(src, " "*(9 - len(src))), end='')
+        print("%s%s"%(dst, " "*(7 - len(dst))), end='')
+        
+        decoded = False
+        if xml:
+            try:
+                ids = xml.xpath("//object[@gad=\"" + dst + "\"]/@id")
+                if len(ids):
+                    print("| ", end="")
+                    print(ids[0], end="")
+                    print(" "*(40-len(ids[0])), end="")
+                else:
+                    print("| ", end="")
+                    print(" "*40, end="")
 
-                    dpts = xml.xpath("//object[@gad=\"" + dst + "\"]/@dpt")
-                    dpt = None
-                    if len(dpts):
-                        dpt = dpts[0]
+                dpts = xml.xpath("//object[@gad=\"" + dst + "\"]/@dpt")
+                dpt = None
+                if len(dpts):
+                    dpt = dpts[0]
 
-                    if dpt and len(imsg) > 7:
-                        tp = int(dpt.split(".")[0])
-                        tpu = int(dpt.split(".")[1])
-                        if tp == 1:
-                            # Boolean
+                if dpt and len(imsg) > 7:
+                    tp = int(dpt.split(".")[0])
+                    tpu = int(dpt.split(".")[1])
+                    if tp == 1:
+                        # Boolean
+                        if len(imsg) == 9:
                             print("| ", end="")
                             print(DPT_1_CODE[tpu][imsg[7]], end="")
                             decoded = True
-                        if tp == 2:
-                            # Control + Boolean
+                    if tp == 2:
+                        # Control + Boolean
+                        if len(imsg) == 9:
                             print("| ", end="")
                             if imsg[7] & 0x2 == 2:
                                 print("control ")
@@ -161,29 +193,28 @@ def decode_message(xml, msg):
                                 print("no control ")
                             print(DPT_1_CODE[tpu][imsg[7] & 0x1], end="")
                             decoded = True
-                        if tp == 5:
-                            # UNSIGNED CHAR
+                    if tp == 5:
+                        # UNSIGNED CHAR
+                        if len(imsg) == 10:
                             print("| %i %s"%((DPT_5_SCALE_UNIT[tpu][0] * imsg[8]) / 255, DPT_5_SCALE_UNIT[tpu][1]),end="")
                             decoded = True
-                        if tp == 9:
+                    if tp == 9:
+                        if len(imsg) == 11:
                             print("| ", end="")
                             print("%.02f"%DPT_9_DECODE(imsg[8] << 8 | imsg[9]), end='')
                             print(" %s"%DPT_9_UNIT[tpu], end='')
                             decoded = True
-                        if tp == 13:
+                    if tp == 13:
+                        if len(imsg) == 13:
                             val = imsg[8] << 24 | imsg[9] << 16 | imsg[10] << 8 | imsg[11]
                             print("| %i %s"%(val, DPT_13_UNIT[tpu]), end='')
                             decoded = True
-                except UnicodeEncodeError as err:
-                    print(" [?]", end="")
-                    decoded = True
-
+            except UnicodeEncodeError as err:
+                print(" [?]", end="")
+                decoded = True
 
             if not decoded:
-                if imsg[2] != 0x00:
-                    s = "| [" + ":".join( [ "%02x"%s for s in imsg[7:] ] ) + "]"
-                else:
-                    s = "|"
+                s = "| [" + ":".join( [ "%02x"%s for s in imsg[7:-1] ] ) + "]"
                 print(s, end='')
                 print(" "*(50 - len(s)), end='')
             
@@ -191,7 +222,7 @@ def decode_message(xml, msg):
 
         if len(omsg):
             return decode_message(xml, omsg)
-        return imsg[2]
+        return cmd
     else:
         decode_message.stay = msg
     return 0
@@ -264,6 +295,7 @@ if __name__ == "__main__":
 
     # Receive HEADER
     data = s.recv(1024)
+    print(data.decode("ASCII"))
 
     if "client_decode_file" in config.keys():
         if os.path.exists(config["client_decode_file"]):
@@ -271,19 +303,52 @@ if __name__ == "__main__":
 
 
     if sys.argv[1] == "QUERY":
-        if sys.argv[2] == "ALL":
-            data = bytes([0xFF, 0x00, 0x01]) # DUMP_CACHED
+        if sys.argv[2] == "ALL": 
+            data = bytes(
+                [
+                    CMD["TELEGRAM_BEGIN"],
+                    0x09,
+                    0x00,
+                    0x00,
+                    0x00,
+                    0x00,
+                    CMD["CMD_DUMP_CACHED"] >> 2,
+                    (CMD["CMD_DUMP_CACHED"] & 0x3) << 6, 
+                    CMD["TELEGRAM_END"]
+                ])
             s.sendall(data)
         else:
             taddr = sys.argv[2].split("/")
             data = bytes([0xFF, 0x02, 0x06, int(taddr[0]) << 3 | int(taddr[1]), int(taddr[2])]) # QUERY ADDR 
             s.sendall(data)
     elif sys.argv[1] == "DMZ":
-        data = bytes([0xFF, 0x00, 0x04]) # SUBSCRIBE_DMZ
+        data = bytes(
+            [
+                CMD["TELEGRAM_BEGIN"],
+                0x09,
+                0x00,
+                0x00,
+                0x00,
+                0x00,
+                CMD["CMD_SUBSCRIBE_DMZ"] >> 2,
+                (CMD["CMD_SUBSCRIBE_DMZ"] & 0x3) << 6, 
+                CMD["TELEGRAM_END"]
+            ])
         s.sendall(data)
     elif sys.argv[1] == "SUBSCRIBE":
         taddr = sys.argv[2].split("/")
-        data = bytes([0xFF, 0x02, 0x02, int(taddr[0]) << 3 | int(taddr[1]), int(taddr[2])]) # QUERY ADDR 
+        data = bytes(
+            [
+                CMD["TELEGRAM_BEGIN"],
+                0x09,
+                0x00,
+                0x00,
+                int(taddr[0]) << 3 | int(taddr[1]),
+                int(taddr[2]),
+                CMD["CMD_SUBSCRIBE"] >> 2,
+                (CMD["CMD_SUBSCRIBE"] & 0x3) << 6, 
+                CMD["TELEGRAM_END"]
+            ])
         s.sendall(data)
     elif sys.argv[1] == "SET":
         taddr = sys.argv[2].split("/")
@@ -310,10 +375,7 @@ if __name__ == "__main__":
         if len(data) == 0:
             break
         
-        try:
-            if decode_message(xml, data) == 0x81: # NOTIFY_EOT End of transmission
-                break
-        except Exception as err:
-            print("%s %s (%s)"%(type(err), data, err))
+        if decode_message(xml, data) == CMD["TELEGRAM_EOT"]: # NOTIFY_EOT End of transmission
+            break
     s.close()
 

@@ -24,8 +24,10 @@
 #include "clientconnection.h"
 #include "clientconnectionssl.h"
 #include "gadobject.h"
+#include "command_type.h"
 
 #if defined (WITH_SSL_SOCKET)
+    extern SSL_CTX *ssl_ctx;
     SSL_CTX *ssl_ctx = nullptr;
 #endif
 
@@ -38,16 +40,13 @@ static std::map<std::string, std::string> server_configuration;
  * Message Format for command:
  *   FLC...
  *
- * F 1 byte: 0xFF (Binary command Type 0)
- * L 1 byte: Len of parameters
- * C 1 byte: Command
+ * 1 byte: 0xC5 (TELEGRAM_BEGIN)
+ * 1 byte: Len of parameters
+ * .
+ * .
+ * .
+ * 1 byte: 0x5C (TELEGRAM_END)
  *
- * Command:
- *  01: Get all cached values
- *  02: Subscribe, need 1 parameter 2byte: eibaddr_t
- *  03: Unsubscribe, need 1 parameter 2byte: eibaddr_t
- *  04: Add to DMZ list (recive all events)
- *  05: Remove to DMZ list
  */
 
 
@@ -71,11 +70,11 @@ void sig_handler(int sig)
     }
 }
 
-int create_socket(int port, const char* name)
+int create_socket(uint16_t port, const char* name)
 {
     int sock = 0;
     int opt = 1;
-    struct sockaddr_in address;
+    struct sockaddr_in address = {0,0, {static_cast<in_addr_t>(0xffffffff)}, {0}};
 
     if( (sock = socket(AF_INET , SOCK_STREAM , 0)) == 0)
     {
@@ -92,7 +91,7 @@ int create_socket(int port, const char* name)
 
     //type of socket created
     address.sin_family = AF_INET;
-    address.sin_addr.s_addr = htonl(INADDR_ANY);
+    address.sin_addr.s_addr = htonl(static_cast<in_addr_t>(0x00000000));
     address.sin_port = htons( port );
 
     //bind the socket to localhost port 6721
@@ -116,8 +115,8 @@ int create_socket(int port, const char* name)
 #if defined (WITH_SSL_SOCKET)
 void init_openssl()
 {
-    SSL_load_error_strings();
-    OpenSSL_add_ssl_algorithms();
+    OPENSSL_init_ssl(OPENSSL_INIT_LOAD_SSL_STRINGS | OPENSSL_INIT_LOAD_CRYPTO_STRINGS, nullptr);
+    OPENSSL_init_ssl(0, nullptr);
 }
 
 void cleanup_openssl()
@@ -125,11 +124,11 @@ void cleanup_openssl()
     EVP_cleanup();
 }
 
-int pem_passwd_cb(char *buf, int size, int rwflag, void *userdata)
+int pem_passwd_cb(char *buf, int size, int /* rwflag*/, void * /*userdata */)
 {
-    strncpy(buf, server_configuration["ssl_private_key_password"].c_str(), size);
+    strncpy(buf, server_configuration["ssl_private_key_password"].c_str(), static_cast<size_t>(size));
     buf[size - 1] = '\0';
-    return strlen(buf);
+    return static_cast<int>(strlen(buf));
 }
 
 SSL_CTX *create_context()
@@ -187,10 +186,9 @@ std::vector<std::string> split(const std::string& s, char seperator)
     return output;
 }
 
-int main(int argc, char** argv)
+int main(int /* argc */, char** /* argv */)
 {
     unsigned char buffer[1025];  //data buffer of 1K
-    ssize_t valread = 0;
     int addrlen = 0;
     int len = 0;
     int knxd_socket = 0;
@@ -222,6 +220,22 @@ int main(int argc, char** argv)
     sigaction(SIGTERM, &sa, nullptr);
     sigaction(SIGINT, &sa, nullptr);
 
+    if(server_configuration.count("individual_address"))
+    {
+        std::string sia = server_configuration["individual_address"];
+        std::cout << "individual_address: " << sia << std::endl;
+        auto tia = split(sia, '.');
+        if(tia.size() == 3)
+        {
+            eibaddr_t src = static_cast<eibaddr_t>(((std::stoi(tia[0]) & 0x0F) << 12) | ((std::stoi(tia[1]) & 0x0F) << 8) | (std::stoi(tia[2]) & 0xFF));
+            GadObject::setIndividualAddress(src);
+        }
+    }
+    if(GadObject::IndividualAddress() == 0)
+    {
+        std::cerr << "individual_address not set, use 0.0.0" << std::endl;
+    }
+
     knxd = EIBSocketURL(server_configuration["knxd_url"].c_str());
     if (EIBOpen_GroupSocket (knxd, 0) == -1)
     {
@@ -240,13 +254,12 @@ int main(int argc, char** argv)
         ctx = create_context();
         if(ctx)
         {
-            server_socket_ssl = create_socket(std::stoi(server_configuration["ssl_server_port"]), "ssl ");
+            server_socket_ssl = create_socket(static_cast<uint16_t>(std::stoi(server_configuration["ssl_server_port"])), "ssl ");
             ssl_ctx = ctx;
         }
     }
 #endif
-    server_socket = create_socket(std::stoi(server_configuration["server_port"]), "");
-
+    server_socket = create_socket(static_cast<uint16_t>(std::stoi(server_configuration["server_port"])), "");
 
     /* EVENT LOOP */
     while(running)
@@ -291,7 +304,6 @@ int main(int argc, char** argv)
 #if defined (WITH_SSL_SOCKET)
         if (FD_ISSET(server_socket_ssl, &readfds))
         {
-            SSL *ssl;
             int new_socket;
             addrlen = 0;
 
@@ -330,33 +342,21 @@ int main(int argc, char** argv)
         if (FD_ISSET(knxd_socket, &readfds))
         {
             len = EIBGetGroup_Src (knxd, sizeof (buffer), buffer, &src, &dest);
-            std::vector<unsigned char> data(buffer + 1, buffer + len);
-            data[0] &= ~0xC0;
-            unsigned char command = static_cast<unsigned char>(((buffer[1] & 0xC0) >> 6) | ((buffer[0] & 0x3)  << 2));
             GadObject *object = GadObject::getObject(dest);
             if(object)
             {
-                switch(command)
-                {
-                    case NOTIFY_KNX_READ:
-                        object->read(src);
-                        break;
-
-                    case NOTIFY_KNX_RESPONSE:
-                        object->response(src, data);
-                        break;
-
-                    case NOTIFY_KNX_WRITE:
-                        object->write(src, data);
-                        break;
-
-                    case NOTIFY_KNX_MEMWRITE:
-                        object->memwrite(src, data);
-                        break;
-
-                    default:
-                        std::cerr << "[KNX] Unknown Command " << command << " [" << len << "]" << std::endl;
-                }
+                std::vector<unsigned char> data(buffer, buffer + len);
+                std::vector<unsigned char> message;
+                message.resize(6);
+                message[0] = TELEGRAM_BEGIN;
+                message[2] = (src >> 8) & 0xFF;
+                message[3] = src & 0xFF;
+                message[4] = (dest >> 8) & 0xFF;
+                message[5] = dest & 0xFF;
+                message.insert(message.end(), data.begin(), data.end());
+                message.push_back(TELEGRAM_END);
+                message[1] = static_cast<unsigned char>(message.size());
+                object->fromBus(message);
             }
         }
 
@@ -381,6 +381,8 @@ int main(int argc, char** argv)
     EIBClose(knxd);
     if(server_socket)
         close(server_socket);
+
+    GadObject::destroy();
 
 #if defined (WITH_SSL_SOCKET)
     if(server_socket_ssl)

@@ -3,19 +3,7 @@
 
 #include <vector>
 #include <sys/types.h>
-
-
-#define CMD_DUMP_CACHED     (0x01)
-#define CMD_SUBSCRIBE       (0x02)
-#define CMD_UNSUBSCRIBE     (0x03)
-#define CMD_SUBSCRIBE_DMZ   (0x04)
-#define CMD_UNSUBSCRIBE_DMZ (0x05)
-#define CMD_REQUEST_VALUE   (0x06)
-#define CMD_SEND_WRITE      (0x07)
-#define CMD_READ            (0x08)
-#define CMD_SETDEBUG        (0x09)
-
-
+#include <netinet/in.h>
 
 static const std::vector<unsigned char> banner = {'K','n','x','C','a','c','h','e','d',':','2','.','0', '\0'};
 
@@ -23,8 +11,9 @@ class ClientConnection
 {
 protected:
     int m_sd;
-    bool m_debug {false};
+    bool m_debug {true};
     bool m_msgdisconnect {true};
+    struct sockaddr_in m_address {0,0, {static_cast<in_addr_t>(0xffffffff)}, {0}};
     static std::vector<ClientConnection *> m_connections;
     static std::vector<ClientConnection *> m_dmz;
 

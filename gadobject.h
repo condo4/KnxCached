@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <memory>
+#include <chrono>
 #include "eibclient.h"
 #include "clientconnection.h"
 
@@ -20,29 +21,39 @@
  *   0x0X : KNX Message: 2 bytes src_addr, 2 bytes dest_addr, N bytes Payload
  */
 
-#define NOTIFY_KNX_READ     (0b00000000)
-#define NOTIFY_KNX_RESPONSE (0b00000001)
-#define NOTIFY_KNX_WRITE    (0b00000010)
-#define NOTIFY_KNX_MEMWRITE (0b00001010)
-#define NOTIFY_EOT          (0b10000001)
-
 std::string GroupAddressToString(unsigned short addr);
 
 class GadObject
 {
     eibaddr_t m_gad;
     std::vector<unsigned char> m_data;
+    std::chrono::time_point<std::chrono::system_clock> m_lastupdate;
+    bool m_valid {false};
 
     std::vector<ClientConnection *> m_subscriber;
     static std::vector<ClientConnection *> m_dmz;
     static std::vector<GadObject *> m_objects;
     static EIBConnection *m_knxd;
+    static eibaddr_t m_individualAddress;
+
 
 public:
     explicit GadObject(eibaddr_t gad);
     eibaddr_t gad() const;
 
+    /* New API */
+    static eibaddr_t IndividualAddress();
+    static void setIndividualAddress(eibaddr_t addr);
+    static void destroy();
+
+    void fromBus(const std::vector<unsigned char> &data, ClientConnection *sender = nullptr);
+    void sendCacheValueToClient(ClientConnection *client);
+
+
+    /* OLD API */
+    /*
     void setData(unsigned char command, eibaddr_t src, const std::vector<unsigned char> &data);
+    void emitDataChange(unsigned char command, eibaddr_t src);
 
     void read(eibaddr_t src);
     void sendRead();
@@ -50,7 +61,7 @@ public:
     void response(eibaddr_t src, const std::vector<unsigned char> &data);
     void write(eibaddr_t src, const std::vector<unsigned char> &data);
     void memwrite(eibaddr_t src, const std::vector<unsigned char> &data);
-    void sendResponse(ClientConnection *client);
+    */
     void removeAll(ClientConnection *client);
     void subscribe(ClientConnection *client);
     void unsubscribe(ClientConnection *client);
