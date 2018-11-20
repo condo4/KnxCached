@@ -174,7 +174,7 @@ def decode_message(xml, msg):
                 if len(dpts):
                     dpt = dpts[0]
 
-                if dpt and len(imsg) > 7:
+                if dpt and len(imsg) > 7 and cmd != CMD["KNX_READ"]:
                     tp = int(dpt.split(".")[0])
                     tpu = int(dpt.split(".")[1])
                     if tp == 1:
@@ -213,11 +213,10 @@ def decode_message(xml, msg):
                 print(" [?]", end="")
                 decoded = True
 
-            if not decoded:
+            if not decoded and cmd != CMD["KNX_READ"]:
                 s = "| [" + ":".join( [ "%02x"%s for s in imsg[7:-1] ] ) + "]"
                 print(s, end='')
                 print(" "*(50 - len(s)), end='')
-            
             print("")
 
         if len(omsg):
@@ -319,7 +318,18 @@ if __name__ == "__main__":
             s.sendall(data)
         else:
             taddr = sys.argv[2].split("/")
-            data = bytes([0xFF, 0x02, 0x06, int(taddr[0]) << 3 | int(taddr[1]), int(taddr[2])]) # QUERY ADDR 
+            data = bytes(
+                [
+                    CMD["TELEGRAM_BEGIN"],
+                    0x09,
+                    0x00,
+                    0x00,
+                    int(taddr[0]) << 3 | int(taddr[1]),
+                    int(taddr[2]),
+                    CMD["CMD_REQUEST_VALUE"] >> 2,
+                    (CMD["CMD_REQUEST_VALUE"] & 0x3) << 6,
+                    CMD["TELEGRAM_END"]
+                ])
             s.sendall(data)
     elif sys.argv[1] == "DMZ":
         data = bytes(
@@ -350,15 +360,26 @@ if __name__ == "__main__":
                 CMD["TELEGRAM_END"]
             ])
         s.sendall(data)
-    elif sys.argv[1] == "SET":
+    elif sys.argv[1] == "WRITE":
         taddr = sys.argv[2].split("/")
-        data = bytes([0xFF, 0x02, 0x07, int(taddr[0]) << 3 | int(taddr[1]), int(taddr[2])]) # QUERY ADDR 
+        data = bytes(
+            [
+                CMD["TELEGRAM_BEGIN"],
+                0x00,
+                0x00,
+                0x00,
+                int(taddr[0]) << 3 | int(taddr[1]),
+                int(taddr[2]),
+                CMD["KNX_WRITE"] >> 2
+            ])
         for b in sys.argv[3].split(":"):
             data += bytes([int(b,16)])
+        data += bytes([CMD["TELEGRAM_END"]])
         adata = bytearray(data)
-        adata[1] = len(data) - 3
+        adata[1] = len(data)
+        adata[7] = adata[7] | ((CMD["KNX_WRITE"] & 0x3) << 6)
         data = bytes(adata)
-        print(data)
+        print("WRITE: %s"%(''.join(format(x, ' 02x') for x in data)))
         s.sendall(data)
         exit(0)
     elif sys.argv[1] == "READ":
