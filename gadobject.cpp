@@ -62,11 +62,11 @@ void GadObject::fromBus(const std::vector<unsigned char> &data, ClientConnection
 #if defined(DEBUG)
     if(sender)
     {
-        std::cout << "[KNX] From Client: " << cmd << " for " << GroupAddressToString(m_gad) << ": ";
+        std::cout << "[KNX] From Client: " << int(cmd) << " for " << GroupAddressToString(m_gad) << ": ";
     }
     else
     {
-        std::cout << "[KNX] From Bus: " << cmd << " for " << GroupAddressToString(m_gad) << ": ";
+        std::cout << "[KNX] From Bus: " << int(cmd) << " for " << GroupAddressToString(m_gad) << ": ";
     }
     dump_telegram(data);
 #endif
