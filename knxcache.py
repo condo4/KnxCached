@@ -216,7 +216,6 @@ def decode_message(xml, msg):
             if not decoded and cmd != CMD["KNX_READ"]:
                 s = "| [" + ":".join( [ "%02x"%s for s in imsg[7:-1] ] ) + "]"
                 print(s, end='')
-                print(" "*(50 - len(s)), end='')
             print("")
 
         if len(omsg):
