@@ -41,4 +41,9 @@ inline void dump_telegram(const std::vector<unsigned char> &message)
     std::cout << "\b]" << std::dec;
 }
 
+inline unsigned short telegram_to_gad(const std::vector<unsigned char> &message)
+{
+    return static_cast<unsigned short>(message[4] << 8 | message[5]);
+}
+
 #endif // COMMAND_TYPE_H
