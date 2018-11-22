@@ -382,6 +382,7 @@ int main(int /* argc */, char** /* argv */)
     if(server_socket)
         close(server_socket);
 
+    ClientConnection::closeAllConnection();
     GadObject::destroy();
 
 #if defined (WITH_SSL_SOCKET)

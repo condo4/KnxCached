@@ -26,6 +26,7 @@ public:
     static std::vector<int> fds();
     static void addConnection(ClientConnection *me);
     static ClientConnection *getConnection(int fd);
+    static void closeAllConnection();
 
     virtual ssize_t write(const std::vector<unsigned char> &data);
     virtual ssize_t read (void *buf, size_t nbytes);

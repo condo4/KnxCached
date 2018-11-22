@@ -30,7 +30,11 @@ ClientConnection::ClientConnection(int sd, struct sockaddr_in *address, bool nat
 
 ClientConnection::~ClientConnection()
 {
-    close( m_sd );
+    if(m_sd)
+    {
+        close( m_sd );
+        m_sd = 0;
+    }
     m_connections.erase(std::remove(m_connections.begin(), m_connections.end(), this), m_connections.end());
     GadObject::forgotClient(this);
     if(m_msgdisconnect)
@@ -87,6 +91,8 @@ bool ClientConnection::incomingData()
     if(ret == 0)
     {
         /* Socket disconnection */
+        close(m_sd);
+        m_sd = 0;
         return false;
     }
 
@@ -161,6 +167,16 @@ bool ClientConnection::incomingData()
                 sendEof();
                 break;
             }
+            case CMD_REQUEST_VALUE:
+            {
+    #if defined(DEBUG)
+                std::cout << "[" << m_sd << "] CMD_REQUEST_VALUE " << GroupAddressToString(dest) << std::endl;
+    #endif
+                GadObject *obj = GadObject::getObject(dest);
+                obj->sendCacheValueToClient(this);
+                sendEof();
+                break;
+            }
             case CMD_SUBSCRIBE:
             {
 #if defined(DEBUG)
@@ -220,7 +236,10 @@ bool ClientConnection::incomingData()
 #endif
                     obj->sendToBus(kdata, this);
                 }
+                break;
             }
+            default:
+                std::cerr << "[" << m_sd << "] UNKNOWN COMMAND " << int(cmd) << std::endl;
         }
 
         /* Next one */
@@ -234,16 +253,20 @@ ssize_t ClientConnection::write(const std::vector<unsigned char> &data)
 #if defined(DEBUG)
     if(data[0] != 'K')
     {
-        std::cout << "[" << m_sd << "] Write : ";
+        std::cout << "[" << m_sd << "] Write : " << GroupAddressToString(telegram_to_gad(data)) << " ";
         dump_telegram(data);
         std::cout << std::endl;
     }
 #endif
+    if(!m_sd)
+        return 0;
     return send(m_sd, data.data(), data.size(), 0);
 }
 
 ssize_t ClientConnection::read(void *buf, size_t nbytes)
 {
+    if(!m_sd)
+        return 0;
     return recv(m_sd, buf, nbytes, 0);
 }
 
@@ -265,4 +288,12 @@ void ClientConnection::sendEof()
 eibaddr_t ClientConnection::knxaddress()
 {
     return m_knxaddress;
+}
+
+void ClientConnection::closeAllConnection()
+{
+    for(ClientConnection* client: ClientConnection::m_connections)
+    {
+        delete client;
+    }
 }
