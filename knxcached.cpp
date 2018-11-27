@@ -342,6 +342,16 @@ int main(int /* argc */, char** /* argv */)
         if (FD_ISSET(knxd_socket, &readfds))
         {
             len = EIBGetGroup_Src (knxd, sizeof (buffer), buffer, &src, &dest);
+            if(len < 0)
+            {
+                std::cerr << "Read EIBGetGroup_Src failed" << std::endl;
+                continue;
+            }
+            if(len < 2)
+            {
+                std::cerr << "Read EIBGetGroup_Src Invalid packet" << std::endl;
+                continue;
+            }
             GadObject *object = GadObject::getObject(dest);
             if(object)
             {
